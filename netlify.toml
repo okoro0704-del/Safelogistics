@@ -1,0 +1,13 @@
+# Netlify + Next.js (App Router)
+# @netlify/plugin-nextjs is auto-installed by Netlify for Next.js sites.
+# Do NOT set publish = ".next" — the Next.js runtime plugin owns publish output.
+
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Optional: pin the Next.js runtime plugin (Netlify also injects this from the UI).
+# [[plugins]]
+#   package = "@netlify/plugin-nextjs"

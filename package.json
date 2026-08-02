@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Delivery tracking platform - Supabase backend + Next.js frontend",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

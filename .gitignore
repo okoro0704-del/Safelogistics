@@ -5,10 +5,15 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.production.local
 
 # Supabase
 supabase/.branches
 supabase/.temp
+
+# Netlify
+.netlify/
 
 # OS / editor
 .DS_Store
@@ -21,3 +26,4 @@ Thumbs.db
 dist/
 .next/
 out/
+*.tsbuildinfo

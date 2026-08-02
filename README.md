@@ -6,6 +6,7 @@ Supabase-backed delivery tracking platform with a Next.js frontend.
 - Frontend details: **[FRONTEND.md](./FRONTEND.md)**
 - Security model & production checklist: **[SECURITY.md](./SECURITY.md)**
 - Manual payment records: **[BILLING.md](./BILLING.md)**
+- Production deploy (Supabase + Netlify): **[DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ## Prerequisites
 

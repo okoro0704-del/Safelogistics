@@ -79,12 +79,13 @@ export async function requestPasswordResetAction(
   const supabase = await createClient();
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.URL ?? // Netlify deploy context primary URL
     (process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : "http://localhost:3000");
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/update-password`,
+    redirectTo: `${origin.replace(/\/$/, "")}/update-password`,
   });
 
   if (error) {
