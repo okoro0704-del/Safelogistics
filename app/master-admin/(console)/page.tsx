@@ -38,8 +38,8 @@ export default async function MasterAdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Platform control center"
-        description="Manage white-label delivery apps across all tenants."
+        title="Application Hub"
+        description="Create and manage every white-label delivery app (tenant) from one place."
         actions={
           <Button asChild>
             <Link href="/master-admin/companies/new">

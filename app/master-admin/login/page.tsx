@@ -5,7 +5,7 @@ import { MasterAdminLoginForm } from "@/components/auth/master-admin-login-form"
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Master Admin sign in",
+  title: "Application Hub sign in",
   robots: { index: false, follow: false },
 };
 

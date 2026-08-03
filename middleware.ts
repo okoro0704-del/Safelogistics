@@ -155,7 +155,7 @@ export async function middleware(request: NextRequest) {
 
     if (isProtected && !user) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = isMasterRoute ? "/master-admin/login" : "/login";
+      loginUrl.pathname = isMasterRoute ? "/hub/login" : "/login";
       if (!isMasterRoute) {
         loginUrl.searchParams.set("next", pathname);
       }
@@ -308,7 +308,7 @@ export async function middleware(request: NextRequest) {
       }
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = pathname.startsWith("/master-admin")
-        ? "/master-admin/login"
+        ? "/hub/login"
         : "/login";
       return NextResponse.redirect(loginUrl);
     }

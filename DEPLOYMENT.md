@@ -140,10 +140,13 @@ are enabled. Do not publish unnecessary tables.
 
 ## 7. Create first Master Admin
 
-**Dedicated sign-in URL (after deploy):**
+**Dedicated Master / Application Hub URLs (after deploy):**
 
 ```text
-https://YOUR_SITE.netlify.app/master-admin/login
+https://YOUR_SITE.netlify.app/hub/login          ← Master Admin sign in
+https://YOUR_SITE.netlify.app/hub                ← Application Hub (create apps)
+https://YOUR_SITE.netlify.app/master-admin/login ← same login (alias)
+https://YOUR_SITE.netlify.app/master-admin       ← same hub (alias)
 ```
 
 Do not use `/login` for Master Admin — that page is for tenant admins and customers.
@@ -191,9 +194,9 @@ insert into public.profiles (
 ```
 
 4. Confirm `role = 'master_admin'` and `company_id is null`.
-5. Sign in at `/master-admin/login` on the **platform** hostname (Netlify domain or
-   `NEXT_PUBLIC_PLATFORM_HOSTS` host). Master Admin routes are blocked on
-   tenant custom domains.
+5. Sign in at `/hub/login` on the **platform** hostname (Netlify domain or
+   `NEXT_PUBLIC_PLATFORM_HOSTS` host). You land in the Application Hub to create
+   tenant apps. Master Admin routes are blocked on tenant custom domains.
 
 If your migrations already create a profile trigger on signup, update that
 row’s `role` to `master_admin` instead of inserting a duplicate.

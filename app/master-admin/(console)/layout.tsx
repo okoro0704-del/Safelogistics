@@ -11,8 +11,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import { resolveBrand } from "@/lib/branding";
 
 const navItems = [
-  { href: "/master-admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/master-admin/companies", label: "Companies", icon: Building2 },
+  { href: "/master-admin", label: "Application Hub", icon: LayoutDashboard },
+  { href: "/master-admin/companies", label: "Apps", icon: Building2 },
   { href: "/master-admin/billing", label: "Payments", icon: CreditCard },
   { href: "/master-admin/settings", label: "Settings", icon: Settings },
 ];
@@ -25,7 +25,7 @@ export default async function MasterAdminLayout({
   const { user, profile } = await getSessionUser();
 
   if (!user || !profile) {
-    redirect("/master-admin/login");
+    redirect("/hub/login");
   }
 
   if (profile.role !== "master_admin") {
@@ -36,8 +36,8 @@ export default async function MasterAdminLayout({
 
   return (
     <AppShell
-      title="Master Admin"
-      subtitle="Platform"
+      title="Application Hub"
+      subtitle="Master Admin"
       navItems={navItems}
       userName={profile.full_name}
       userEmail={profile.email}

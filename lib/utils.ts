@@ -21,7 +21,7 @@ export function homePathForRole(role: string | null | undefined) {
     case "customer":
       return "/dashboard";
     case "master_admin":
-      return "/master-admin";
+      return "/hub";
     default:
       return "/login";
   }

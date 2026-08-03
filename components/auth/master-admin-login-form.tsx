@@ -36,10 +36,10 @@ export function MasterAdminLoginForm() {
           <Shield className="size-6" aria-hidden />
         </div>
         <div className="space-y-1.5">
-          <CardTitle className="text-2xl">Master Admin</CardTitle>
+          <CardTitle className="text-2xl">Application Hub</CardTitle>
           <CardDescription>
-            Platform console for {PLATFORM_DEFAULTS.appName}. Create tenants,
-            record payments, and manage company domains.
+            Master Admin sign in for {PLATFORM_DEFAULTS.appName}. After login
+            you can create and manage every tenant delivery app.
           </CardDescription>
         </div>
       </CardHeader>
@@ -102,7 +102,7 @@ export function MasterAdminLoginForm() {
                 Signing in…
               </>
             ) : (
-              "Sign in to Master Admin"
+              "Enter Application Hub"
             )}
           </Button>
 
