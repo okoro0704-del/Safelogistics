@@ -140,9 +140,34 @@ are enabled. Do not publish unnecessary tables.
 
 ## 7. Create first Master Admin
 
-Production should **not** use seed demo users (`DemoPass123!`, Swift/Prime).
+**Dedicated sign-in URL (after deploy):**
 
-Safest controlled procedure:
+```text
+https://YOUR_SITE.netlify.app/master-admin/login
+```
+
+Do not use `/login` for Master Admin — that page is for tenant admins and customers.
+
+### Option A — Dashboard (recommended)
+
+1. Supabase → Authentication → Users → Add user  
+2. Email / password of your choice, **Auto Confirm User** ON  
+3. Run SQL to set `profiles.role = 'master_admin'` and `company_id = null`  
+   (see script below or `scripts/create-master-admin.sql`)
+
+### Option B — Temporary bootstrap SQL
+
+Run `scripts/create-master-admin.sql` in the SQL Editor. Default temporary login:
+
+| Email | Password |
+|-------|----------|
+| `master@platform.local` | `TempMaster123!` |
+
+Then open `/master-admin/login` and sign in. Change the password after first access.
+
+Production should **not** rely on seed demo users (`DemoPass123!`, Swift/Prime).
+
+Safest controlled procedure (manual):
 
 1. In Supabase → Authentication → Users, create a user with a strong password
    (or invite via email).
@@ -166,7 +191,7 @@ insert into public.profiles (
 ```
 
 4. Confirm `role = 'master_admin'` and `company_id is null`.
-5. Sign in at `/login` on the **platform** hostname (Netlify domain or
+5. Sign in at `/master-admin/login` on the **platform** hostname (Netlify domain or
    `NEXT_PUBLIC_PLATFORM_HOSTS` host). Master Admin routes are blocked on
    tenant custom domains.
 

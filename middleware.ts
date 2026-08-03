@@ -11,7 +11,19 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { homePathForRole } from "@/lib/utils";
 import type { CompanyStatus, Profile } from "@/lib/types/database";
 
-const PUBLIC_AUTH_ROUTES = ["/login", "/forgot-password", "/update-password"];
+const PUBLIC_AUTH_ROUTES = [
+  "/login",
+  "/master-admin/login",
+  "/forgot-password",
+  "/update-password",
+];
+
+function isMasterAdminLoginPath(pathname: string) {
+  return (
+    pathname === "/master-admin/login" ||
+    pathname.startsWith("/master-admin/login/")
+  );
+}
 
 function withTenantHeaders(
   response: NextResponse,
@@ -106,7 +118,9 @@ export async function middleware(request: NextRequest) {
 
     const isAdminRoute = pathname.startsWith("/admin");
     const isCustomerRoute = pathname.startsWith("/dashboard");
-    const isMasterRoute = pathname.startsWith("/master-admin");
+    const isMasterLoginRoute = isMasterAdminLoginPath(pathname);
+    const isMasterRoute =
+      pathname.startsWith("/master-admin") && !isMasterLoginRoute;
     const isComingSoon = pathname.startsWith("/coming-soon");
     const isSuspended = pathname.startsWith("/suspended");
     const isAuthRoute = PUBLIC_AUTH_ROUTES.some(
@@ -115,10 +129,12 @@ export async function middleware(request: NextRequest) {
     const isProtected =
       isAdminRoute || isCustomerRoute || isMasterRoute || isComingSoon;
 
-    // Custom domains never expose Master Admin UI or APIs
+    // Custom domains never expose Master Admin UI or APIs (including platform login)
     if (
       tenant &&
-      (isMasterRoute || pathname.startsWith("/api/master-admin"))
+      (isMasterRoute ||
+        isMasterLoginRoute ||
+        pathname.startsWith("/api/master-admin"))
     ) {
       if (pathname.startsWith("/api/master-admin")) {
         return NextResponse.json(
@@ -139,8 +155,10 @@ export async function middleware(request: NextRequest) {
 
     if (isProtected && !user) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      loginUrl.searchParams.set("next", pathname);
+      loginUrl.pathname = isMasterRoute ? "/master-admin/login" : "/login";
+      if (!isMasterRoute) {
+        loginUrl.searchParams.set("next", pathname);
+      }
       return withTenantHeaders(
         NextResponse.redirect(loginUrl),
         tenant
@@ -280,7 +298,8 @@ export async function middleware(request: NextRequest) {
     if (
       pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/master-admin") ||
+      (pathname.startsWith("/master-admin") &&
+        !isMasterAdminLoginPath(pathname)) ||
       pathname.startsWith("/api/master-admin") ||
       pathname.startsWith("/coming-soon")
     ) {
@@ -288,7 +307,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
+      loginUrl.pathname = pathname.startsWith("/master-admin")
+        ? "/master-admin/login"
+        : "/login";
       return NextResponse.redirect(loginUrl);
     }
     return scrubbed;

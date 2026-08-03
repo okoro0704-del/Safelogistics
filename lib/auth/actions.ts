@@ -58,10 +58,81 @@ export async function signInAction(
   redirect(homePathForRole((profile as Profile).role));
 }
 
+/** Platform Master Admin only — used by /master-admin/login */
+export async function signInMasterAdminAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { error: "Email and password are required." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    return { error: "Invalid email or password." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Unable to establish a session. Please try again." };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    return {
+      error:
+        "No Master Admin profile for this account. Create the Auth user in Supabase, then set profiles.role = master_admin.",
+    };
+  }
+
+  if ((profile as Profile).role !== "master_admin") {
+    await supabase.auth.signOut();
+    return {
+      error:
+        "This account is not a Master Admin. Use the tenant Sign in page for company admins and customers.",
+    };
+  }
+
+  redirect("/master-admin");
+}
+
 export async function signOutAction() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let role: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    role = (profile as Pick<Profile, "role"> | null)?.role ?? null;
+  }
+
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect(role === "master_admin" ? "/master-admin/login" : "/login");
 }
 
 export async function requestPasswordResetAction(

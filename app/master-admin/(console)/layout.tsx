@@ -25,7 +25,7 @@ export default async function MasterAdminLayout({
   const { user, profile } = await getSessionUser();
 
   if (!user || !profile) {
-    redirect("/login");
+    redirect("/master-admin/login");
   }
 
   if (profile.role !== "master_admin") {

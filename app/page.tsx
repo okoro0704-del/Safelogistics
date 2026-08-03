@@ -57,6 +57,17 @@ export default async function LandingPage() {
                 <Link href="/login">Sign in</Link>
               </Button>
             </div>
+            {!ctx.isCustomDomain ? (
+              <p className="text-sm text-muted-foreground">
+                Platform operator?{" "}
+                <Link
+                  href="/master-admin/login"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Master Admin sign in
+                </Link>
+              </p>
+            ) : null}
           </div>
 
           <Card className="border-border/80 shadow-md">
