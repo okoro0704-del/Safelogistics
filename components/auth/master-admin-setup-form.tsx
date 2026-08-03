@@ -20,6 +20,7 @@ type Status = {
   setupAvailable?: boolean;
   supabaseHost?: string;
   misconfiguredLocal?: boolean;
+  hadExtraPath?: boolean;
   error?: string;
 };
 
@@ -201,6 +202,14 @@ export function MasterAdminSetupForm() {
               role="alert"
             >
               {formError}
+            </p>
+          ) : null}
+          {status.hadExtraPath ? (
+            <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+              Netlify Supabase URL had an extra path (e.g. /rest/v1). The app now
+              strips it automatically — if create still fails, set
+              NEXT_PUBLIC_SUPABASE_URL to exactly https://YOUR_REF.supabase.co
+              and redeploy.
             </p>
           ) : null}
           {success ? (

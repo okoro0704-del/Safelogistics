@@ -24,14 +24,24 @@ async function masterAdminCount(
 /** Public: whether first-time Master Admin setup is still available. */
 export async function GET() {
   try {
-    const { url } = getSupabaseEnv();
+    const { url, rawUrl } = getSupabaseEnv();
+    const hadExtraPath = (() => {
+      try {
+        const p = new URL(rawUrl.trim()).pathname.replace(/\/+$/, "");
+        return Boolean(p && p !== "/");
+      } catch {
+        return false;
+      }
+    })();
     const service = createServiceRoleClient();
     const masters = await masterAdminCount(service);
     return NextResponse.json({
       setupAvailable: masters === 0,
       supabaseHost: new URL(url).host,
+      supabaseUrlNormalized: url,
       misconfiguredLocal:
         process.env.NETLIFY === "true" && isLocalSupabaseUrl(url),
+      hadExtraPath,
     });
   } catch (error) {
     const message =
@@ -119,18 +129,27 @@ export async function POST(request: Request) {
       user_metadata: { full_name: fullName },
     });
 
-    if (created.error) {
-      const msg = created.error.message.toLowerCase();
-      const exists =
-        msg.includes("already") ||
-        msg.includes("registered") ||
-        msg.includes("exists");
-
-      if (!exists) {
+      if (!created.error) {
+      userId = created.data.user?.id ?? null;
+    } else {
+      const msg = created.error.message;
+      const lower = msg.toLowerCase();
+      if (lower.includes("invalid path")) {
         return NextResponse.json(
-          { error: created.error.message },
+          {
+            error:
+              "Supabase URL is wrong. In Netlify set NEXT_PUBLIC_SUPABASE_URL to exactly https://YOUR_PROJECT_REF.supabase.co (no /rest/v1), then redeploy.",
+          },
           { status: 400 },
         );
+      }
+      const exists =
+        lower.includes("already") ||
+        lower.includes("registered") ||
+        lower.includes("exists");
+
+      if (!exists) {
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
 
       // User exists in Auth — reset password + confirm email via Admin API
@@ -169,8 +188,6 @@ export async function POST(request: Request) {
         );
       }
       userId = existing.id;
-    } else {
-      userId = created.data.user?.id ?? null;
     }
 
     if (!userId) {
