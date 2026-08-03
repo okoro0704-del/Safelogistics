@@ -116,6 +116,19 @@ export async function middleware(request: NextRequest) {
       response.headers.set("Vary", "Host");
     }
 
+    // Platform root (safeogistics.netlify.app) → Application Hub, not a tenant landing.
+    // Tenant marketing/tracking lives on custom domains (e.g. RouteLedger).
+    if (!tenant && (pathname === "/" || pathname === "")) {
+      const hubUrl = request.nextUrl.clone();
+      hubUrl.pathname = user ? "/hub" : "/hub/login";
+      hubUrl.search = "";
+      const redirect = NextResponse.redirect(hubUrl);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirect.cookies.set(cookie.name, cookie.value);
+      });
+      return redirect;
+    }
+
     const isAdminRoute = pathname.startsWith("/admin");
     const isCustomerRoute = pathname.startsWith("/dashboard");
     const isMasterLoginRoute = isMasterAdminLoginPath(pathname);

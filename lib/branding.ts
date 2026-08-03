@@ -4,11 +4,11 @@
  */
 
 export const PLATFORM_DEFAULTS = {
-  appName: "RouteLedger",
-  shortName: "RouteLedger",
-  tagline: "Track and manage deliveries with confidence.",
+  appName: "SafeLogistics",
+  shortName: "SafeLogistics",
+  tagline: "White-label delivery platform for logistics operators.",
   description:
-    "Delivery tracking platform for logistics teams and their customers.",
+    "Multi-tenant delivery tracking platform. Create branded tenant apps from the Application Hub.",
   primaryColor: "#0f766e",
   secondaryColor: "#e2e8f0",
   accentColor: "#115e59",
