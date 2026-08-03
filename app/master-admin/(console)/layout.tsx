@@ -10,6 +10,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveBrand } from "@/lib/branding";
 
+export const dynamic = "force-dynamic";
+
 const navItems = [
   { href: "/master-admin", label: "Application Hub", icon: LayoutDashboard },
   { href: "/master-admin/companies", label: "Apps", icon: Building2 },
@@ -22,10 +24,20 @@ export default async function MasterAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile } = await getSessionUser();
+  let user = null;
+  let profile = null;
+
+  try {
+    const session = await getSessionUser();
+    user = session.user;
+    profile = session.profile;
+  } catch (error) {
+    console.error("MasterAdminLayout session error", error);
+    redirect("/master-admin/login");
+  }
 
   if (!user || !profile) {
-    redirect("/hub/login");
+    redirect("/master-admin/login");
   }
 
   if (profile.role !== "master_admin") {
@@ -33,14 +45,16 @@ export default async function MasterAdminLayout({
   }
 
   const brand = resolveBrand(null);
+  const userName = profile.full_name?.trim() || "Master Admin";
+  const userEmail = profile.email?.trim() || user.email || "";
 
   return (
     <AppShell
       title="Application Hub"
       subtitle="Master Admin"
       navItems={navItems}
-      userName={profile.full_name}
-      userEmail={profile.email}
+      userName={userName}
+      userEmail={userEmail}
       homeHref="/master-admin"
       variant="platform"
       brand={brand}

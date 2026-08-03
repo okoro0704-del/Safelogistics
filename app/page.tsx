@@ -28,7 +28,7 @@ export default async function LandingPage() {
   const ctx = await getRequestTenantContext();
 
   if (!ctx.isCustomDomain || !ctx.tenant) {
-    redirect("/hub");
+    redirect("/master-admin");
   }
 
   const displayName = ctx.tenant.company_name;

@@ -138,7 +138,7 @@ export async function signInMasterAdminAction(
     };
   }
 
-  redirect("/hub");
+  redirect("/master-admin");
 }
 
 export async function signOutAction() {
@@ -158,7 +158,7 @@ export async function signOutAction() {
   }
 
   await supabase.auth.signOut();
-  redirect(role === "master_admin" ? "/hub/login" : "/login");
+  redirect(role === "master_admin" ? "/master-admin/login" : "/login");
 }
 
 export async function requestPasswordResetAction(

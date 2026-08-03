@@ -6,12 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getInitials(name: string) {
-  return name
+  const parts = (name || "")
     .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+    .slice(0, 2);
+  if (parts.length === 0) return "MA";
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
 export function homePathForRole(role: string | null | undefined) {
@@ -21,7 +21,7 @@ export function homePathForRole(role: string | null | undefined) {
     case "customer":
       return "/dashboard";
     case "master_admin":
-      return "/hub";
+      return "/master-admin";
     default:
       return "/login";
   }

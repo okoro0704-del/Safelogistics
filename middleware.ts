@@ -128,7 +128,7 @@ export async function middleware(request: NextRequest) {
     // Tenant marketing/tracking lives on custom domains (e.g. RouteLedger).
     if (!tenant && (pathname === "/" || pathname === "")) {
       const hubUrl = request.nextUrl.clone();
-      hubUrl.pathname = user ? "/hub" : "/hub/login";
+      hubUrl.pathname = user ? "/master-admin" : "/master-admin/login";
       hubUrl.search = "";
       const redirect = NextResponse.redirect(hubUrl);
       supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -180,7 +180,7 @@ export async function middleware(request: NextRequest) {
 
     if (isProtected && !user) {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = isMasterRoute ? "/hub/login" : "/login";
+      loginUrl.pathname = isMasterRoute ? "/master-admin/login" : "/login";
       if (!isMasterRoute) {
         loginUrl.searchParams.set("next", pathname);
       }
@@ -334,7 +334,7 @@ export async function middleware(request: NextRequest) {
       }
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = pathname.startsWith("/master-admin")
-        ? "/hub/login"
+        ? "/master-admin/login"
         : "/login";
       return NextResponse.redirect(loginUrl);
     }

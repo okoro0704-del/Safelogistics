@@ -25,8 +25,22 @@ export type CompanyListItem = Company & {
 export async function getPlatformStats(): Promise<PlatformStats> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("master_platform_stats");
-  if (error) throw error;
-  return data as PlatformStats;
+  if (error) {
+    throw new Error(error.message || "Unable to load platform stats.");
+  }
+  const row = data as PlatformStats | null;
+  if (!row || typeof row !== "object") {
+    throw new Error("Platform stats returned an unexpected response.");
+  }
+  return {
+    companies: Number(row.companies ?? 0),
+    active_companies: Number(row.active_companies ?? 0),
+    suspended_companies: Number(row.suspended_companies ?? 0),
+    total_deliveries: Number(row.total_deliveries ?? 0),
+    active_deliveries: Number(row.active_deliveries ?? 0),
+    total_admins: Number(row.total_admins ?? 0),
+    total_customers: Number(row.total_customers ?? 0),
+  };
 }
 
 export async function listCompanies(options?: {
@@ -59,33 +73,37 @@ export async function listCompanies(options?: {
 
   const ids = rows.map((c) => c.id);
 
-  const [{ data: profiles }, { data: deliveries }, { data: payments }] =
-    await Promise.all([
-      supabase.from("profiles").select("company_id, role").in("company_id", ids),
-      supabase
-        .from("deliveries")
-        .select("company_id, status")
-        .in("company_id", ids),
-      supabase
-        .from("payments")
-        .select("company_id, amount_cents, currency, status, payment_date, created_at")
-        .in("company_id", ids)
-        .eq("status", "recorded")
-        .order("payment_date", { ascending: false }),
-    ]);
+  const [profilesRes, deliveriesRes, paymentsRes] = await Promise.all([
+    supabase.from("profiles").select("company_id, role").in("company_id", ids),
+    supabase
+      .from("deliveries")
+      .select("company_id, status")
+      .in("company_id", ids),
+    supabase
+      .from("payments")
+      .select("company_id, amount_cents, currency, status, payment_date, created_at")
+      .in("company_id", ids)
+      .eq("status", "recorded")
+      .order("payment_date", { ascending: false }),
+  ]);
 
   const profileRows =
-    (profiles as Array<{ company_id: string | null; role: string }> | null) ??
+    (profilesRes.data as Array<{ company_id: string | null; role: string }> | null) ??
     [];
   const deliveryRows =
-    (deliveries as Array<{ company_id: string; status: string }> | null) ?? [];
+    (deliveriesRes.data as Array<{ company_id: string; status: string }> | null) ??
+    [];
   type PayRow = {
     company_id: string;
     amount_cents: number;
     currency: string;
     status: string;
   };
-  const payRows = (payments as PayRow[] | null) ?? [];
+  // Payments table may be missing if migrations were not fully applied — do not crash hub.
+  const payRows =
+    paymentsRes.error
+      ? []
+      : ((paymentsRes.data as PayRow[] | null) ?? []);
 
   return rows.map((company) => {
     const companyProfiles = profileRows.filter(
