@@ -158,15 +158,21 @@ Do not use `/login` for Master Admin — that page is for tenant admins and cust
 3. Run SQL to set `profiles.role = 'master_admin'` and `company_id = null`  
    (see script below or `scripts/create-master-admin.sql`)
 
-### Option B — Temporary bootstrap SQL
+### Option B — First-time web setup (recommended on Netlify)
 
-Run `scripts/create-master-admin.sql` in the SQL Editor. Default temporary login:
+After env vars are set and the site is deployed:
 
-| Email | Password |
-|-------|----------|
-| `master@platform.local` | `TempMaster123!` |
+1. Open `https://YOUR_SITE.netlify.app/hub/setup`
+2. Enter email + password (do **not** use `*.local` emails)
+3. Click **Create Master Admin**
+4. Sign in at `/hub/login`
 
-Then open `/master-admin/login` and sign in. Change the password after first access.
+This uses the Auth Admin API. Do **not** rely on SQL `crypt()` password inserts for hosted Auth.
+
+### Option C — Temporary bootstrap SQL (profile promote only)
+
+`scripts/create-master-admin.sql` can promote an **existing** Auth user to
+`master_admin`. It does **not** reliably set a login password on hosted Supabase.
 
 Production should **not** rely on seed demo users (`DemoPass123!`, Swift/Prime).
 

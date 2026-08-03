@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         destination: "/master-admin/login",
         permanent: false,
       },
+      {
+        source: "/hub/setup",
+        destination: "/master-admin/setup",
+        permanent: false,
+      },
     ];
   },
 };

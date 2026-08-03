@@ -107,6 +107,15 @@ export function MasterAdminLoginForm() {
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
+            First time setup?{" "}
+            <Link
+              href="/hub/setup"
+              className="font-medium text-primary hover:underline"
+            >
+              Create Master Admin
+            </Link>
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
             Tenant admin or customer?{" "}
             <Link
               href="/login"

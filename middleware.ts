@@ -14,6 +14,7 @@ import type { CompanyStatus, Profile } from "@/lib/types/database";
 const PUBLIC_AUTH_ROUTES = [
   "/login",
   "/master-admin/login",
+  "/master-admin/setup",
   "/forgot-password",
   "/update-password",
 ];
@@ -22,6 +23,13 @@ function isMasterAdminLoginPath(pathname: string) {
   return (
     pathname === "/master-admin/login" ||
     pathname.startsWith("/master-admin/login/")
+  );
+}
+
+function isMasterAdminSetupPath(pathname: string) {
+  return (
+    pathname === "/master-admin/setup" ||
+    pathname.startsWith("/master-admin/setup/")
   );
 }
 
@@ -132,8 +140,11 @@ export async function middleware(request: NextRequest) {
     const isAdminRoute = pathname.startsWith("/admin");
     const isCustomerRoute = pathname.startsWith("/dashboard");
     const isMasterLoginRoute = isMasterAdminLoginPath(pathname);
+    const isMasterSetupRoute = isMasterAdminSetupPath(pathname);
     const isMasterRoute =
-      pathname.startsWith("/master-admin") && !isMasterLoginRoute;
+      pathname.startsWith("/master-admin") &&
+      !isMasterLoginRoute &&
+      !isMasterSetupRoute;
     const isComingSoon = pathname.startsWith("/coming-soon");
     const isSuspended = pathname.startsWith("/suspended");
     const isAuthRoute = PUBLIC_AUTH_ROUTES.some(
@@ -142,11 +153,12 @@ export async function middleware(request: NextRequest) {
     const isProtected =
       isAdminRoute || isCustomerRoute || isMasterRoute || isComingSoon;
 
-    // Custom domains never expose Master Admin UI or APIs (including platform login)
+    // Custom domains never expose Master Admin UI or APIs (including platform login/setup)
     if (
       tenant &&
       (isMasterRoute ||
         isMasterLoginRoute ||
+        isMasterSetupRoute ||
         pathname.startsWith("/api/master-admin"))
     ) {
       if (pathname.startsWith("/api/master-admin")) {
@@ -312,7 +324,8 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
       (pathname.startsWith("/master-admin") &&
-        !isMasterAdminLoginPath(pathname)) ||
+        !isMasterAdminLoginPath(pathname) &&
+        !isMasterAdminSetupPath(pathname)) ||
       pathname.startsWith("/api/master-admin") ||
       pathname.startsWith("/coming-soon")
     ) {

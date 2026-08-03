@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSupabaseEnv } from "@/lib/supabase/env";
 import { homePathForRole } from "@/lib/utils";
 import type { Profile } from "@/lib/types/database";
 
@@ -10,6 +11,18 @@ export type AuthActionState = {
   error?: string;
   success?: string;
 };
+
+function authConfigHint(): string | null {
+  try {
+    const { url } = getSupabaseEnv();
+    if (/127\.0\.0\.1|localhost/i.test(url)) {
+      return "This deployment is pointed at local Supabase (localhost). In Netlify → Environment variables set NEXT_PUBLIC_SUPABASE_URL to https://YOUR_PROJECT.supabase.co plus matching anon and service_role keys, then redeploy.";
+    }
+  } catch {
+    return "Supabase environment variables are missing on this server.";
+  }
+  return null;
+}
 
 export async function signInAction(
   _prev: AuthActionState,
@@ -22,6 +35,11 @@ export async function signInAction(
 
   if (!email || !password) {
     return { error: "Email and password are required." };
+  }
+
+  const configError = authConfigHint();
+  if (configError) {
+    return { error: configError };
   }
 
   const supabase = await createClient();
@@ -72,6 +90,11 @@ export async function signInMasterAdminAction(
     return { error: "Email and password are required." };
   }
 
+  const configError = authConfigHint();
+  if (configError) {
+    return { error: configError };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -79,7 +102,10 @@ export async function signInMasterAdminAction(
   });
 
   if (error) {
-    return { error: "Invalid email or password." };
+    return {
+      error:
+        "Invalid email or password. If this is a new site, open /hub/setup to create the Master Admin (SQL password scripts do not work on hosted Supabase).",
+    };
   }
 
   const {
@@ -100,7 +126,7 @@ export async function signInMasterAdminAction(
     await supabase.auth.signOut();
     return {
       error:
-        "No Master Admin profile for this account. Create the Auth user in Supabase, then set profiles.role = master_admin.",
+        "No Master Admin profile for this account. Open /hub/setup (first time only) or set profiles.role = master_admin in SQL.",
     };
   }
 
