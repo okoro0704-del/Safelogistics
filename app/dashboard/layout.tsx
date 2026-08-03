@@ -1,15 +1,10 @@
 import { redirect } from "next/navigation";
-import { LayoutDashboard, Package, UserRound } from "lucide-react";
 
-import { AppShell } from "@/components/layout/app-shell";
+import { CustomerShell } from "@/components/layout/customer-shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveCompanyBrand } from "@/lib/branding/server";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/deliveries", label: "My Deliveries", icon: Package },
-  { href: "/dashboard/profile", label: "Profile", icon: UserRound },
-];
+export const dynamic = "force-dynamic";
 
 export default async function CustomerLayout({
   children,
@@ -39,17 +34,13 @@ export default async function CustomerLayout({
   });
 
   return (
-    <AppShell
-      title="Customer"
-      subtitle="Customer portal"
-      navItems={navItems}
+    <CustomerShell
       userName={profile.full_name}
       userEmail={profile.email}
-      homeHref="/dashboard"
       companyName={company?.name}
       brand={brand}
     >
       {children}
-    </AppShell>
+    </CustomerShell>
   );
 }

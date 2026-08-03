@@ -1,21 +1,10 @@
 import { redirect } from "next/navigation";
-import {
-  LayoutDashboard,
-  Package,
-  Settings,
-  Users,
-} from "lucide-react";
 
-import { AppShell } from "@/components/layout/app-shell";
+import { AdminShell } from "@/components/layout/admin-shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveCompanyBrand } from "@/lib/branding/server";
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/deliveries", label: "Deliveries", icon: Package },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({
   children,
@@ -45,17 +34,13 @@ export default async function AdminLayout({
   });
 
   return (
-    <AppShell
-      title="Admin"
-      subtitle="Admin portal"
-      navItems={navItems}
+    <AdminShell
       userName={profile.full_name}
       userEmail={profile.email}
-      homeHref="/admin"
       companyName={company?.name}
       brand={brand}
     >
       {children}
-    </AppShell>
+    </AdminShell>
   );
 }
