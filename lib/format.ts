@@ -95,6 +95,7 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
   }
 
   const message = typeof error === "string" ? error : error.message;
+  if (!message) return fallback;
   const lower = message.toLowerCase();
 
   if (lower.includes("duplicate") || lower.includes("already registered")) {
@@ -110,7 +111,9 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     lower.includes("could not choose") ||
     lower.includes("best candidate function") ||
     lower.includes("function public.master_provision_company") ||
-    lower.includes("could not find the function")
+    lower.includes("could not find the function") ||
+    lower.includes("pgrst202") ||
+    lower.includes("pgrst203")
   ) {
     return "Database provisioning function is misconfigured. Run scripts/fix-provision-overloads.sql in the Supabase SQL Editor, then try again.";
   }
@@ -120,8 +123,11 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
   if (lower.includes("payment amount and method")) {
     return "Payment amount and method are required when marking payment as received.";
   }
-  if (lower.includes("invalid currency")) {
-    return "Invalid payment currency.";
+  if (lower.includes("invalid currency") || lower.includes("3-letter")) {
+    return "Invalid currency code.";
+  }
+  if (lower.includes("website_url") || lower.includes("https?://")) {
+    return "Website URL must start with http:// or https://";
   }
   if (
     lower.includes("permission") ||
@@ -146,7 +152,9 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     lower.includes("company name is required") ||
     lower.includes("admin name is required") ||
     lower.includes("admin email is required") ||
-    lower.includes("company slug must")
+    lower.includes("company slug must") ||
+    lower.includes("bucket") ||
+    lower.includes("storage")
   ) {
     return message;
   }
@@ -159,11 +167,11 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     lower.includes("supabase") ||
     lower.includes("postgres")
   ) {
-    return fallback;
+    return fallback || message;
   }
 
-  if (message.length > 220) {
-    return fallback;
+  if (message.length > 280) {
+    return fallback || message.slice(0, 280);
   }
 
   return message || fallback;

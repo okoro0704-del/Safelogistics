@@ -89,6 +89,79 @@ function parsePaymentMethod(
   return null;
 }
 
+function normalizeWebsiteUrl(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function buildProvisionRpcArgs(
+  fields: ProvisionFields,
+  adminUserId: string,
+): Record<string, unknown> {
+  const args: Record<string, unknown> = {
+    p_company_name: fields.company_name,
+    p_company_slug: fields.company_slug,
+    p_admin_user_id: adminUserId,
+    p_admin_full_name: fields.admin_full_name,
+    p_admin_email: fields.admin_email,
+    p_payment_received: fields.payment_received,
+  };
+
+  if (fields.admin_phone) args.p_admin_phone = fields.admin_phone;
+  if (fields.company_description) {
+    args.p_company_description = fields.company_description;
+  }
+  if (fields.support_email) {
+    args.p_company_email = fields.support_email;
+    args.p_support_email = fields.support_email;
+  }
+  if (fields.support_phone) {
+    args.p_company_phone = fields.support_phone;
+    args.p_support_phone = fields.support_phone;
+  }
+  if (fields.timezone) args.p_timezone = fields.timezone;
+  if (fields.currency) args.p_currency = fields.currency;
+  if (fields.website_url) args.p_website_url = fields.website_url;
+  if (fields.primary_color) {
+    args.p_primary_color = normalizeHexColor(fields.primary_color);
+  }
+  if (fields.secondary_color) {
+    args.p_secondary_color = normalizeHexColor(fields.secondary_color);
+  }
+  if (fields.accent_color) {
+    args.p_accent_color = normalizeHexColor(fields.accent_color);
+  }
+  if (fields.tagline) args.p_tagline = fields.tagline;
+
+  if (fields.payment_received) {
+    args.p_payment_amount_cents = fields.payment_amount_cents;
+    args.p_payment_currency = fields.payment_currency ?? "USD";
+    args.p_payment_method = fields.payment_method;
+    if (fields.payment_date) args.p_payment_date = fields.payment_date;
+    if (fields.payment_reference) {
+      args.p_payment_reference = fields.payment_reference;
+    }
+    if (fields.payment_notes) args.p_payment_notes = fields.payment_notes;
+  }
+
+  return args;
+}
+
+function provisionFailureMessage(raw: string | undefined | null): string {
+  const message = (raw ?? "").trim();
+  if (!message) {
+    return "Unable to create the app. No usable tenant was created.";
+  }
+  const mapped = friendlyErrorMessage(message, "");
+  // Always prefer a concrete DB/RPC message for Master Admin so setup can proceed.
+  if (mapped) return mapped;
+  if (message.length <= 280) return message;
+  return "Unable to create the app. No usable tenant was created.";
+}
+
 async function parseProvisionBody(request: Request): Promise<ProvisionFields> {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -116,7 +189,9 @@ async function parseProvisionBody(request: Request): Promise<ProvisionFields> {
       support_email:
         String(form.get("support_email") ?? "").trim().toLowerCase() || null,
       support_phone: String(form.get("support_phone") ?? "").trim() || null,
-      website_url: String(form.get("website_url") ?? "").trim() || null,
+      website_url: normalizeWebsiteUrl(
+        String(form.get("website_url") ?? "").trim() || null,
+      ),
       primary_color: String(form.get("primary_color") ?? "").trim() || null,
       secondary_color:
         String(form.get("secondary_color") ?? "").trim() || null,
@@ -163,7 +238,9 @@ async function parseProvisionBody(request: Request): Promise<ProvisionFields> {
     support_email:
       String(body.support_email ?? "").trim().toLowerCase() || null,
     support_phone: String(body.support_phone ?? "").trim() || null,
-    website_url: String(body.website_url ?? "").trim() || null,
+    website_url: normalizeWebsiteUrl(
+      String(body.website_url ?? "").trim() || null,
+    ),
     primary_color: String(body.primary_color ?? "").trim() || null,
     secondary_color: String(body.secondary_color ?? "").trim() || null,
     accent_color: String(body.accent_color ?? "").trim() || null,
@@ -345,54 +422,24 @@ export async function POST(request: Request) {
 
     const { data: result, error: provisionError } = await supabase.rpc(
       "master_provision_company",
-      {
-        p_company_name: fields.company_name,
-        p_company_slug: fields.company_slug,
-        p_admin_user_id: created.user.id,
-        p_admin_full_name: fields.admin_full_name,
-        p_admin_email: fields.admin_email,
-        p_admin_phone: fields.admin_phone,
-        p_company_description: fields.company_description,
-        p_company_email: fields.support_email,
-        p_company_phone: fields.support_phone,
-        p_timezone: fields.timezone,
-        p_currency: fields.currency,
-        p_support_email: fields.support_email,
-        p_support_phone: fields.support_phone,
-        p_website_url: fields.website_url,
-        p_primary_color: fields.primary_color
-          ? normalizeHexColor(fields.primary_color)
-          : null,
-        p_secondary_color: fields.secondary_color
-          ? normalizeHexColor(fields.secondary_color)
-          : null,
-        p_accent_color: fields.accent_color
-          ? normalizeHexColor(fields.accent_color)
-          : null,
-        p_tagline: fields.tagline,
-        p_payment_received: fields.payment_received,
-        p_payment_amount_cents: fields.payment_amount_cents,
-        p_payment_currency: fields.payment_currency,
-        p_payment_method: fields.payment_method,
-        p_payment_date: fields.payment_date,
-        p_payment_reference: fields.payment_reference,
-        p_payment_notes: fields.payment_notes,
-      },
+      buildProvisionRpcArgs(fields, created.user.id) as never,
     );
 
     if (provisionError || !result) {
       await adminClient.auth.admin.deleteUser(created.user.id);
       createdUserId = null;
       const message = provisionError?.message ?? "";
-      let error = "Unable to create the app. No usable tenant was created.";
-      if (message.toLowerCase().includes("slug already")) {
-        error = "This app URL identifier is already in use.";
-      }
-      console.error("master_provision_company failed", message);
+      console.error("master_provision_company failed", {
+        message,
+        code: provisionError?.code,
+        details: provisionError?.details,
+        hint: provisionError?.hint,
+      });
       return NextResponse.json(
         {
-          error: friendlyErrorMessage(message, error),
+          error: provisionFailureMessage(message),
           code: provisionError?.code ?? null,
+          hint: provisionError?.hint ?? null,
         },
         { status: 400 },
       );
@@ -514,8 +561,9 @@ export async function POST(request: Request) {
       }
       return NextResponse.json(
         {
-          error:
-            "Unable to create the app. No usable tenant was created. Please try again.",
+          error: provisionFailureMessage(
+            uploadErr instanceof Error ? uploadErr.message : null,
+          ),
         },
         { status: 400 },
       );
