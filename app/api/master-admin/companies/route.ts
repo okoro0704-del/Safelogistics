@@ -488,11 +488,12 @@ export async function POST(request: Request) {
       const ext = extForMime(file.type);
       const path = `${createdCompanyId}/${kind}.${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
-      const { error: uploadError } = await supabase.storage
+      // Service role avoids Storage RLS edge cases during first-time provision.
+      const { error: uploadError } = await adminClient.storage
         .from("branding")
         .upload(path, buffer, { contentType: file.type, upsert: true });
       if (uploadError) throw new Error(uploadError.message);
-      const { data } = supabase.storage.from("branding").getPublicUrl(path);
+      const { data } = adminClient.storage.from("branding").getPublicUrl(path);
       return `${data.publicUrl}?v=${Date.now()}`;
     }
 

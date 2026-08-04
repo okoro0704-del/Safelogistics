@@ -270,6 +270,7 @@ export function CreateAppWizard() {
     }
     setError(null);
     startTransition(async () => {
+      try {
       const form = new FormData();
       form.set("company_name", companyName.trim());
       form.set("company_slug", slug);
@@ -308,25 +309,36 @@ export function CreateAppWizard() {
         method: "POST",
         body: form,
       });
-      const payload = (await response.json()) as {
+      let payload: {
         error?: string;
+        hint?: string | null;
         company?: { id: string; name: string };
         temporary_password?: string;
         admin_email?: string;
       };
-
-      if (!response.ok) {
+      try {
+        payload = (await response.json()) as typeof payload;
+      } catch {
         const message =
-          payload.error ??
-          "Unable to create the app. No usable tenant was created.";
+          "Create App returned a non-JSON response. Check Netlify function logs and try again.";
         setError(message);
         toastError(message);
         return;
       }
 
+      if (!response.ok) {
+        const message =
+          payload.error ??
+          "Unable to create the app. No usable tenant was created.";
+        const full = payload.hint ? `${message} (${payload.hint})` : message;
+        setError(full);
+        toastError(full);
+        return;
+      }
+
       if (!payload.company?.id || !payload.temporary_password) {
         const message =
-          "App provisioning returned an incomplete response. If this keeps happening, run scripts/fix-provision-overloads.sql in Supabase SQL Editor.";
+          "App provisioning returned an incomplete response. Open /api/master-admin/provision-check while signed in, then retry.";
         setError(message);
         toastError(message);
         return;
@@ -340,6 +352,14 @@ export function CreateAppWizard() {
       });
       success("App created successfully.");
       router.refresh();
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to create the app. Please try again.";
+        setError(message);
+        toastError(message);
+      }
     });
   }
 
