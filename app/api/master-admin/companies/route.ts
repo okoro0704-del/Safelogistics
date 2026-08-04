@@ -388,15 +388,41 @@ export async function POST(request: Request) {
       if (message.toLowerCase().includes("slug already")) {
         error = "This app URL identifier is already in use.";
       }
+      console.error("master_provision_company failed", message);
       return NextResponse.json(
-        { error: friendlyErrorMessage(message, error) },
+        {
+          error: friendlyErrorMessage(message, error),
+          code: provisionError?.code ?? null,
+        },
         { status: 400 },
       );
     }
 
-    const company = (result as { company?: { id: string; name: string } })
-      .company;
+    const provisioned =
+      typeof result === "object" && result !== null
+        ? (result as {
+            company?: { id: string; name: string; slug?: string };
+            admin?: unknown;
+            settings?: unknown;
+            branding?: unknown;
+            payment?: unknown;
+          })
+        : null;
+    const company = provisioned?.company ?? null;
     createdCompanyId = company?.id ?? null;
+
+    if (!createdCompanyId || !company) {
+      await adminClient.auth.admin.deleteUser(created.user.id);
+      createdUserId = null;
+      console.error("master_provision_company returned no company", result);
+      return NextResponse.json(
+        {
+          error:
+            "Unable to create the app. The database returned an empty company. Run scripts/fix-provision-overloads.sql in Supabase, then try again.",
+        },
+        { status: 400 },
+      );
+    }
 
     async function uploadAsset(
       file: File,
@@ -496,16 +522,18 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      ...result,
+      company,
+      admin: provisioned?.admin ?? null,
+      settings: provisioned?.settings ?? null,
+      branding: provisioned?.branding ?? null,
+      payment: provisioned?.payment ?? null,
       temporary_password: password,
       admin_email: fields.admin_email,
       message:
         "App created successfully. Share the administrator credentials securely. The password is shown only once.",
     });
   } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("POST /api/master-admin/companies", error);
-    }
+    console.error("POST /api/master-admin/companies", error);
 
     try {
       const auth = await requireMasterAdminApi();
@@ -525,8 +553,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
+        error: friendlyErrorMessage(
+          error instanceof Error ? error.message : error,
           "Unable to create the app. No usable tenant was created. Please try again.",
+        ),
       },
       { status: 500 },
     );

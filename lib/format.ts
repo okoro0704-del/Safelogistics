@@ -100,6 +100,29 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
   if (lower.includes("duplicate") || lower.includes("already registered")) {
     return "An account with this email already exists.";
   }
+  if (lower.includes("slug already")) {
+    return "This app URL identifier is already in use.";
+  }
+  if (lower.includes("admin profile already")) {
+    return "That administrator account is already linked to a profile.";
+  }
+  if (
+    lower.includes("could not choose") ||
+    lower.includes("best candidate function") ||
+    lower.includes("function public.master_provision_company") ||
+    lower.includes("could not find the function")
+  ) {
+    return "Database provisioning function is misconfigured. Run scripts/fix-provision-overloads.sql in the Supabase SQL Editor, then try again.";
+  }
+  if (lower.includes("only the platform master admin")) {
+    return "Your session is not recognized as Master Admin. Sign out and sign in again at /master-admin/login.";
+  }
+  if (lower.includes("payment amount and method")) {
+    return "Payment amount and method are required when marking payment as received.";
+  }
+  if (lower.includes("invalid currency")) {
+    return "Invalid payment currency.";
+  }
   if (
     lower.includes("permission") ||
     lower.includes("not authorized") ||
@@ -118,9 +141,18 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     return fallback;
   }
 
-  // Avoid leaking raw Postgres / provider internals in production
+  // Prefer known RAISE EXCEPTION messages from our RPCs
   if (
-    process.env.NODE_ENV === "production" ||
+    lower.includes("company name is required") ||
+    lower.includes("admin name is required") ||
+    lower.includes("admin email is required") ||
+    lower.includes("company slug must")
+  ) {
+    return message;
+  }
+
+  // Avoid leaking raw Postgres / provider internals
+  if (
     /^\d{5}/.test(message) ||
     lower.includes("violates") ||
     lower.includes("constraint") ||
@@ -130,7 +162,7 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     return fallback;
   }
 
-  if (message.length > 160) {
+  if (message.length > 220) {
     return fallback;
   }
 

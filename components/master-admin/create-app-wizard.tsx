@@ -315,10 +315,18 @@ export function CreateAppWizard() {
         admin_email?: string;
       };
 
-      if (!response.ok || !payload.company || !payload.temporary_password) {
+      if (!response.ok) {
         const message =
           payload.error ??
           "Unable to create the app. No usable tenant was created.";
+        setError(message);
+        toastError(message);
+        return;
+      }
+
+      if (!payload.company?.id || !payload.temporary_password) {
+        const message =
+          "App provisioning returned an incomplete response. If this keeps happening, run scripts/fix-provision-overloads.sql in Supabase SQL Editor.";
         setError(message);
         toastError(message);
         return;
