@@ -3,8 +3,10 @@ import {
   normalizeHostname,
   type ResolvedTenant,
 } from "@/lib/domains/normalize";
+import { previewDomainForSlug } from "@/lib/domains/preview";
+import { isValidCompanySlug, normalizeCompanySlug } from "@/lib/utils";
 
-/** Short-lived in-process hostname → tenant cache. */
+/** Short-lived in-process hostname/slug → tenant cache. */
 const resolveCache = new Map<
   string,
   { expires: number; tenant: ResolvedTenant | null }
@@ -17,13 +19,36 @@ export function invalidateDomainCache(hostname?: string | null) {
     return;
   }
   const key = normalizeHostname(hostname);
-  if (key) resolveCache.delete(key);
+  if (key) resolveCache.delete(`host:${key}`);
+}
+
+export function invalidateSlugCache(slug?: string | null) {
+  if (!slug) {
+    resolveCache.clear();
+    return;
+  }
+  resolveCache.delete(`slug:${normalizeCompanySlug(slug)}`);
 }
 
 type RpcClient = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rpc: (...args: any[]) => PromiseLike<{ data: unknown; error: unknown }>;
 };
+
+function cacheGet(key: string): ResolvedTenant | null | undefined {
+  const cached = resolveCache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    return cached.tenant;
+  }
+  return undefined;
+}
+
+function cacheSet(key: string, tenant: ResolvedTenant | null) {
+  resolveCache.set(key, {
+    expires: Date.now() + CACHE_TTL_MS,
+    tenant,
+  });
+}
 
 export async function resolveCompanyFromHostname(
   hostname: string | null | undefined,
@@ -34,9 +59,10 @@ export async function resolveCompanyFromHostname(
     return null;
   }
 
-  const cached = resolveCache.get(host);
-  if (cached && cached.expires > Date.now()) {
-    return cached.tenant;
+  const cacheKey = `host:${host}`;
+  const cached = cacheGet(cacheKey);
+  if (cached !== undefined) {
+    return cached;
   }
 
   const { data, error } = await rpcClient.rpc("resolve_tenant_by_hostname", {
@@ -47,14 +73,47 @@ export async function resolveCompanyFromHostname(
     if (process.env.NODE_ENV === "development") {
       console.warn("resolveCompanyFromHostname", error);
     }
-    resolveCache.set(host, { expires: Date.now() + CACHE_TTL_MS, tenant: null });
+    cacheSet(cacheKey, null);
     return null;
   }
 
   const tenant = (data as ResolvedTenant | null) ?? null;
-  resolveCache.set(host, {
-    expires: Date.now() + CACHE_TTL_MS,
-    tenant,
+  cacheSet(cacheKey, tenant);
+  return tenant;
+}
+
+/** Path preview: /t/{slug} on the platform host. */
+export async function resolveCompanyFromSlug(
+  slug: string | null | undefined,
+  rpcClient: RpcClient,
+): Promise<ResolvedTenant | null> {
+  const normalized = normalizeCompanySlug(slug ?? "");
+  if (!normalized || !isValidCompanySlug(normalized)) {
+    return null;
+  }
+
+  const cacheKey = `slug:${normalized}`;
+  const cached = cacheGet(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const { data, error } = await rpcClient.rpc("resolve_tenant_by_slug", {
+    p_slug: normalized,
   });
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("resolveCompanyFromSlug", error);
+    }
+    cacheSet(cacheKey, null);
+    return null;
+  }
+
+  let tenant = (data as ResolvedTenant | null) ?? null;
+  if (tenant && !tenant.domain) {
+    tenant = { ...tenant, domain: previewDomainForSlug(normalized) };
+  }
+  cacheSet(cacheKey, tenant);
   return tenant;
 }

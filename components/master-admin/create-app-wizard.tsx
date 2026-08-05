@@ -114,6 +114,7 @@ export function CreateAppWizard() {
   const [created, setCreated] = useState<{
     companyId: string;
     companyName: string;
+    companySlug: string;
     adminEmail: string;
     temporaryPassword: string;
   } | null>(null);
@@ -347,6 +348,7 @@ export function CreateAppWizard() {
       setCreated({
         companyId: payload.company.id,
         companyName: payload.company.name,
+        companySlug: slug,
         adminEmail: payload.admin_email ?? adminEmail,
         temporaryPassword: payload.temporary_password,
       });
@@ -389,6 +391,16 @@ export function CreateAppWizard() {
               <span className="text-muted-foreground">Administrator:</span>{" "}
               {created.adminEmail}
             </p>
+            <p>
+              <span className="text-muted-foreground">Preview:</span>{" "}
+              <Link
+                className="font-medium text-primary underline-offset-2 hover:underline"
+                href={`/t/${created.companySlug}`}
+                target="_blank"
+              >
+                /t/{created.companySlug}
+              </Link>
+            </p>
             <p className="font-mono">
               <span className="font-sans text-muted-foreground">
                 Temporary password:
@@ -397,6 +409,11 @@ export function CreateAppWizard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary">
+              <Link href={`/t/${created.companySlug}`} target="_blank">
+                Open preview
+              </Link>
+            </Button>
             <Button
               type="button"
               variant="outline"

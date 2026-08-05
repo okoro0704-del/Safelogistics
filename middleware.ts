@@ -6,10 +6,20 @@ import {
   TENANT_COMPANY_SLUG_HEADER,
   TENANT_DOMAIN_HEADER,
 } from "@/lib/domains/headers";
-import { resolveCompanyFromHostname } from "@/lib/domains/resolve-hostname";
+import { isPlatformHostname } from "@/lib/domains/normalize";
+import {
+  isPlatformExclusivePath,
+  parseTenantPreviewPath,
+  TENANT_PREVIEW_COOKIE,
+} from "@/lib/domains/preview";
+import {
+  resolveCompanyFromHostname,
+  resolveCompanyFromSlug,
+} from "@/lib/domains/resolve-hostname";
 import { updateSession } from "@/lib/supabase/middleware";
 import { homePathForRole } from "@/lib/utils";
 import type { CompanyStatus, Profile } from "@/lib/types/database";
+import type { ResolvedTenant } from "@/lib/domains/normalize";
 
 const PUBLIC_AUTH_ROUTES = [
   "/login",
@@ -18,6 +28,22 @@ const PUBLIC_AUTH_ROUTES = [
   "/forgot-password",
   "/update-password",
 ];
+
+type TenantHeaderPayload = {
+  company_id: string;
+  company_name: string;
+  company_slug: string;
+  domain: string;
+};
+
+function toHeaderPayload(tenant: ResolvedTenant): TenantHeaderPayload {
+  return {
+    company_id: tenant.company_id,
+    company_name: tenant.company_name,
+    company_slug: tenant.company_slug,
+    domain: tenant.domain,
+  };
+}
 
 function isMasterAdminLoginPath(pathname: string) {
   return (
@@ -35,19 +61,13 @@ function isMasterAdminSetupPath(pathname: string) {
 
 function withTenantHeaders(
   response: NextResponse,
-  tenant: {
-    company_id: string;
-    company_name: string;
-    company_slug: string;
-    domain: string;
-  } | null,
+  tenant: TenantHeaderPayload | null,
 ) {
   if (tenant) {
     response.headers.set(TENANT_COMPANY_ID_HEADER, tenant.company_id);
     response.headers.set(TENANT_COMPANY_NAME_HEADER, tenant.company_name);
     response.headers.set(TENANT_COMPANY_SLUG_HEADER, tenant.company_slug);
     response.headers.set(TENANT_DOMAIN_HEADER, tenant.domain);
-    // Expose to server components via request headers clone pattern
     response.headers.set("x-middleware-tenant", "1");
   }
   return response;
@@ -55,15 +75,9 @@ function withTenantHeaders(
 
 function applyRequestTenantHeaders(
   request: NextRequest,
-  tenant: {
-    company_id: string;
-    company_name: string;
-    company_slug: string;
-    domain: string;
-  } | null,
+  tenant: TenantHeaderPayload | null,
 ) {
   const requestHeaders = new Headers(request.headers);
-  // Clear any client-spoofed tenant headers
   requestHeaders.delete(TENANT_COMPANY_ID_HEADER);
   requestHeaders.delete(TENANT_COMPANY_NAME_HEADER);
   requestHeaders.delete(TENANT_COMPANY_SLUG_HEADER);
@@ -77,56 +91,107 @@ function applyRequestTenantHeaders(
   return requestHeaders;
 }
 
+function setPreviewCookie(response: NextResponse, slug: string) {
+  response.cookies.set(TENANT_PREVIEW_COOKIE, slug, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 8,
+  });
+}
+
+function clearPreviewCookie(response: NextResponse) {
+  response.cookies.set(TENANT_PREVIEW_COOKIE, "", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   try {
-    // Prefer Next.js URL hostname (hosting-aware) over client-spoofable headers
     const hostname = request.nextUrl.hostname;
     const { supabase, user, supabaseResponse } = await updateSession(request);
 
-    const tenant = await resolveCompanyFromHostname(hostname, supabase);
+    let tenant = await resolveCompanyFromHostname(hostname, supabase);
+    let effectivePath = pathname;
+    let previewSlug: string | null = null;
+    let shouldRewritePreview = false;
+    let clearPreview = false;
 
-    const requestHeaders = applyRequestTenantHeaders(
-      request,
-      tenant
-        ? {
-            company_id: tenant.company_id,
-            company_name: tenant.company_name,
-            company_slug: tenant.company_slug,
-            domain: tenant.domain,
+    // Path preview only on platform hosts (not custom domains).
+    if (!tenant && isPlatformHostname(hostname)) {
+      const parsed = parseTenantPreviewPath(pathname);
+      if (parsed) {
+        const previewTenant = await resolveCompanyFromSlug(
+          parsed.slug,
+          supabase,
+        );
+        if (!previewTenant) {
+          return new NextResponse("App not found.", { status: 404 });
+        }
+        tenant = previewTenant;
+        previewSlug = parsed.slug;
+        effectivePath = parsed.restPath;
+        shouldRewritePreview = true;
+      } else if (isPlatformExclusivePath(pathname)) {
+        clearPreview = true;
+      } else {
+        const cookieSlug = request.cookies.get(TENANT_PREVIEW_COOKIE)?.value;
+        if (cookieSlug) {
+          const previewTenant = await resolveCompanyFromSlug(
+            cookieSlug,
+            supabase,
+          );
+          if (previewTenant) {
+            tenant = previewTenant;
+            previewSlug = previewTenant.company_slug;
+          } else {
+            clearPreview = true;
           }
-        : null,
-    );
+        }
+      }
+    }
 
-    // Rebuild response so downstream RSC can read tenant headers
-    let response = NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-    // Preserve auth cookies from updateSession
+    const tenantHeaders = tenant ? toHeaderPayload(tenant) : null;
+    const requestHeaders = applyRequestTenantHeaders(request, tenantHeaders);
+
+    let response: NextResponse;
+    if (shouldRewritePreview) {
+      const rewriteUrl = request.nextUrl.clone();
+      rewriteUrl.pathname = effectivePath;
+      response = NextResponse.rewrite(rewriteUrl, {
+        request: { headers: requestHeaders },
+      });
+    } else {
+      response = NextResponse.next({
+        request: { headers: requestHeaders },
+      });
+    }
+
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       response.cookies.set(cookie.name, cookie.value);
     });
-    response = withTenantHeaders(
-      response,
-      tenant
-        ? {
-            company_id: tenant.company_id,
-            company_name: tenant.company_name,
-            company_slug: tenant.company_slug,
-            domain: tenant.domain,
-          }
-        : null,
-    );
-    // Prevent CDN/shared caches from mixing tenant HTML
-    if (tenant) {
-      response.headers.set("Cache-Control", "private, no-store");
-      response.headers.set("Vary", "Host");
+    response = withTenantHeaders(response, tenantHeaders);
+
+    if (previewSlug) {
+      setPreviewCookie(response, previewSlug);
+    } else if (clearPreview) {
+      clearPreviewCookie(response);
     }
 
-    // Platform root (safeogistics.netlify.app) → Application Hub, not a tenant landing.
-    // Tenant marketing/tracking lives on custom domains (e.g. RouteLedger).
-    if (!tenant && (pathname === "/" || pathname === "")) {
+    if (tenant) {
+      response.headers.set("Cache-Control", "private, no-store");
+      response.headers.set("Vary", "Host, Cookie");
+    }
+
+    // Platform root without tenant → Application Hub.
+    if (!tenant && (effectivePath === "/" || effectivePath === "")) {
       const hubUrl = request.nextUrl.clone();
       hubUrl.pathname = user ? "/master-admin" : "/master-admin/login";
       hubUrl.search = "";
@@ -134,34 +199,36 @@ export async function middleware(request: NextRequest) {
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         redirect.cookies.set(cookie.name, cookie.value);
       });
+      clearPreviewCookie(redirect);
       return redirect;
     }
 
-    const isAdminRoute = pathname.startsWith("/admin");
-    const isCustomerRoute = pathname.startsWith("/dashboard");
-    const isMasterLoginRoute = isMasterAdminLoginPath(pathname);
-    const isMasterSetupRoute = isMasterAdminSetupPath(pathname);
+    const isAdminRoute = effectivePath.startsWith("/admin");
+    const isCustomerRoute = effectivePath.startsWith("/dashboard");
+    const isMasterLoginRoute = isMasterAdminLoginPath(effectivePath);
+    const isMasterSetupRoute = isMasterAdminSetupPath(effectivePath);
     const isMasterRoute =
-      pathname.startsWith("/master-admin") &&
+      effectivePath.startsWith("/master-admin") &&
       !isMasterLoginRoute &&
       !isMasterSetupRoute;
-    const isComingSoon = pathname.startsWith("/coming-soon");
-    const isSuspended = pathname.startsWith("/suspended");
+    const isComingSoon = effectivePath.startsWith("/coming-soon");
+    const isSuspended = effectivePath.startsWith("/suspended");
     const isAuthRoute = PUBLIC_AUTH_ROUTES.some(
-      (route) => pathname === route || pathname.startsWith(`${route}/`),
+      (route) =>
+        effectivePath === route || effectivePath.startsWith(`${route}/`),
     );
     const isProtected =
       isAdminRoute || isCustomerRoute || isMasterRoute || isComingSoon;
 
-    // Custom domains never expose Master Admin UI or APIs (including platform login/setup)
+    // Tenant context never exposes Master Admin UI or APIs
     if (
       tenant &&
       (isMasterRoute ||
         isMasterLoginRoute ||
         isMasterSetupRoute ||
-        pathname.startsWith("/api/master-admin"))
+        effectivePath.startsWith("/api/master-admin"))
     ) {
-      if (pathname.startsWith("/api/master-admin")) {
+      if (effectivePath.startsWith("/api/master-admin")) {
         return NextResponse.json(
           { error: "Not available on this domain." },
           { status: 403 },
@@ -170,31 +237,26 @@ export async function middleware(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/unauthorized";
       redirectUrl.search = "";
-      return withTenantHeaders(NextResponse.redirect(redirectUrl), {
-        company_id: tenant.company_id,
-        company_name: tenant.company_name,
-        company_slug: tenant.company_slug,
-        domain: tenant.domain,
-      });
+      const redirect = withTenantHeaders(
+        NextResponse.redirect(redirectUrl),
+        tenantHeaders,
+      );
+      if (previewSlug) setPreviewCookie(redirect, previewSlug);
+      return redirect;
     }
 
     if (isProtected && !user) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = isMasterRoute ? "/master-admin/login" : "/login";
       if (!isMasterRoute) {
-        loginUrl.searchParams.set("next", pathname);
+        loginUrl.searchParams.set("next", effectivePath);
       }
-      return withTenantHeaders(
+      const redirect = withTenantHeaders(
         NextResponse.redirect(loginUrl),
-        tenant
-          ? {
-              company_id: tenant.company_id,
-              company_name: tenant.company_name,
-              company_slug: tenant.company_slug,
-              domain: tenant.domain,
-            }
-          : null,
+        tenantHeaders,
       );
+      if (previewSlug) setPreviewCookie(redirect, previewSlug);
+      return redirect;
     }
 
     if (!user) {
@@ -219,7 +281,6 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    // Hostname is a routing hint — authenticated users must match tenant company
     if (
       tenant &&
       (role === "admin" || role === "customer") &&
@@ -230,18 +291,14 @@ export async function middleware(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/unauthorized";
       redirectUrl.search = "";
-      return withTenantHeaders(NextResponse.redirect(redirectUrl), {
-        company_id: tenant.company_id,
-        company_name: tenant.company_name,
-        company_slug: tenant.company_slug,
-        domain: tenant.domain,
-      });
+      const redirect = withTenantHeaders(
+        NextResponse.redirect(redirectUrl),
+        tenantHeaders,
+      );
+      if (previewSlug) setPreviewCookie(redirect, previewSlug);
+      return redirect;
     }
 
-    // Master Admin on a custom domain: allow public pages only; private tenant
-    // portals stay blocked by role checks. Coming-soon / master routes already blocked.
-
-    // Suspended company users cannot use admin/customer portals
     if (
       typed?.company_id &&
       (role === "admin" || role === "customer") &&
@@ -269,11 +326,13 @@ export async function middleware(request: NextRequest) {
 
     const home = homePathForRole(role);
 
-    if (isAuthRoute && pathname !== "/update-password") {
+    if (isAuthRoute && effectivePath !== "/update-password") {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = home;
       redirectUrl.search = "";
-      return NextResponse.redirect(redirectUrl);
+      const redirect = NextResponse.redirect(redirectUrl);
+      if (previewSlug) setPreviewCookie(redirect, previewSlug);
+      return redirect;
     }
 
     if (isAdminRoute && role !== "admin") {
@@ -313,7 +372,6 @@ export async function middleware(request: NextRequest) {
 
     return response;
   } catch {
-    // Never fail open with client-spoofable tenant headers
     const scrubbed = NextResponse.next({
       request: {
         headers: applyRequestTenantHeaders(request, null),
@@ -323,6 +381,7 @@ export async function middleware(request: NextRequest) {
     if (
       pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/t/") ||
       (pathname.startsWith("/master-admin") &&
         !isMasterAdminLoginPath(pathname) &&
         !isMasterAdminSetupPath(pathname)) ||

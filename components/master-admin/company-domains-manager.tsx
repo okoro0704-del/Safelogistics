@@ -56,9 +56,11 @@ function Mark({ ok, pending }: { ok: boolean; pending?: boolean }) {
 
 export function CompanyDomainsManager({
   companyId,
+  companySlug,
   initialDomains,
 }: {
   companyId: string;
+  companySlug?: string;
   initialDomains: CompanyDomain[];
 }) {
   const router = useRouter();
@@ -252,7 +254,23 @@ export function CompanyDomainsManager({
         <CardHeader>
           <CardTitle>Add domain</CardTitle>
           <CardDescription>
-            Connect a custom hostname. Automatic DNS uses the configured
+            Connect a custom hostname. Until DNS is ready, use path preview
+            {companySlug ? (
+              <>
+                {" "}
+                (
+                <a
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                  href={`/t/${companySlug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  /t/{companySlug}
+                </a>
+                )
+              </>
+            ) : null}{" "}
+            on your Netlify platform URL. Automatic DNS uses the configured
             provider when available; otherwise use manual instructions.
           </CardDescription>
         </CardHeader>
@@ -307,7 +325,23 @@ export function CompanyDomainsManager({
         <CardContent>
           {domains.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No custom domains yet. The platform URL continues to work.
+              No custom domains yet.{" "}
+              {companySlug ? (
+                <>
+                  Use{" "}
+                  <a
+                    className="font-medium text-foreground underline-offset-2 hover:underline"
+                    href={`/t/${companySlug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    /t/{companySlug}
+                  </a>{" "}
+                  on the platform host to preview this app.
+                </>
+              ) : (
+                "The platform path preview continues to work."
+              )}
             </p>
           ) : (
             <ul className="divide-y divide-border">

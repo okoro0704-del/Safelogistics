@@ -287,7 +287,41 @@ Confirm build logs show `npm run build` succeeding.
 
 ---
 
+## 12b. Tenant path preview (before custom domain)
+
+Nested Netlify hosts like `tenant.yoursite.netlify.app` are **not** supported.
+Before a custom domain is ready, open the tenant on the **platform** host:
+
+```text
+https://YOUR_SITE.netlify.app/t/{company-slug}
+```
+
+Example: `https://safeogistics.netlify.app/t/fasttrack`
+
+Requires the SQL function `resolve_tenant_by_slug` (migration
+`20260805120000_resolve_tenant_by_slug.sql`, or run
+`scripts/resolve-tenant-by-slug.sql` in the Supabase SQL Editor).
+
+Hub UI shows **Open preview** on the company page and after Create App.
+
+---
+
 ## 13. Configure custom domains (tenants)
+
+**Before a custom domain (path preview):**
+
+On the platform Netlify host, open:
+
+```text
+https://YOUR_SITE.netlify.app/t/{company-slug}
+```
+
+Example: `https://safeogistics.netlify.app/t/fasttrack`
+
+Requires `resolve_tenant_by_slug` in Supabase (migration
+`20260805120000_resolve_tenant_by_slug.sql` or
+`scripts/resolve-tenant-by-slug.sql`). Visiting `/master-admin` clears
+preview context so the Application Hub stays available.
 
 **Application (already implemented):**
 

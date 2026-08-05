@@ -57,6 +57,13 @@ export default async function CompanyDetailPage({
         description={`Slug: ${company.slug}`}
         actions={
           <div className="flex flex-wrap gap-2">
+            {company.status === "active" ? (
+              <Button asChild variant="secondary">
+                <Link href={`/t/${company.slug}`} target="_blank">
+                  Open preview
+                </Link>
+              </Button>
+            ) : null}
             <Button asChild variant="outline">
               <Link href={`/master-admin/companies/${company.id}/branding`}>
                 Branding

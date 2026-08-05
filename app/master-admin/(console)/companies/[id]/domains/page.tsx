@@ -46,6 +46,7 @@ export default async function CompanyDomainsPage({
       />
       <CompanyDomainsManager
         companyId={id}
+        companySlug={detail.company.slug}
         initialDomains={(data as CompanyDomain[] | null) ?? []}
       />
     </div>

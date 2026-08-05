@@ -24,7 +24,9 @@ export {
 
 export {
   invalidateDomainCache,
+  invalidateSlugCache,
   resolveCompanyFromHostname,
+  resolveCompanyFromSlug,
 } from "@/lib/domains/resolve-hostname";
 
 export type RequestTenantContext = {

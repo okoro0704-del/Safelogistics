@@ -573,6 +573,18 @@ export type Database = {
           is_primary: boolean;
         } | null;
       };
+      resolve_tenant_by_slug: {
+        Args: { p_slug: string };
+        Returns: {
+          company_id: string;
+          company_name: string;
+          company_slug: string;
+          company_status: string;
+          domain_id: string | null;
+          domain: string;
+          is_primary: boolean;
+        } | null;
+      };
       master_add_company_domain: {
         Args: {
           p_company_id: string;
