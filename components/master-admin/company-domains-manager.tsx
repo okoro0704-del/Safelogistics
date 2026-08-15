@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, Loader2, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 
+import { BuyDomainPanel } from "@/components/master-admin/buy-domain-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -250,9 +251,18 @@ export function CompanyDomainsManager({
 
   return (
     <div className="space-y-6">
+      <BuyDomainPanel
+        companyId={companyId}
+        onPurchased={(domain) => {
+          setDomains((prev) =>
+            prev.some((d) => d.id === domain.id) ? prev : [...prev, domain],
+          );
+        }}
+      />
+
       <Card>
         <CardHeader>
-          <CardTitle>Add domain</CardTitle>
+          <CardTitle>Add existing domain</CardTitle>
           <CardDescription>
             Connect a custom hostname. Until DNS is ready, use path preview
             {companySlug ? (

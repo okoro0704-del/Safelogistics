@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Inbox,
   LayoutDashboard,
   Package,
   Settings,
@@ -14,6 +15,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/deliveries", label: "Deliveries", icon: Package },
+  { href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

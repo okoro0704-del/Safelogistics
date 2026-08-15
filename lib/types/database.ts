@@ -48,6 +48,91 @@ export type Payment = {
   created_at: string;
 };
 
+export type DomainOrder = {
+  id: string;
+  company_id: string;
+  company_domain_id: string | null;
+  domain: string;
+  normalized_domain: string;
+  years: number;
+  namecheap_order_id: string | null;
+  cost_cents: number | null;
+  currency: string;
+  status: "pending" | "purchased" | "failed" | "cancelled";
+  payment_id: string | null;
+  contact_snapshot: Record<string, unknown> | null;
+  last_error: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CompanyEmailDomain = {
+  id: string;
+  company_id: string;
+  domain: string;
+  normalized_domain: string;
+  resend_domain_id: string | null;
+  status: "pending" | "verified" | "failed";
+  last_error: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CompanyMailbox = {
+  id: string;
+  company_id: string;
+  email_domain_id: string;
+  local_part: string;
+  full_address: string;
+  mailbox_type: "app_inbox";
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailThread = {
+  id: string;
+  company_id: string;
+  mailbox_id: string | null;
+  subject: string;
+  participants: unknown;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailMessage = {
+  id: string;
+  company_id: string;
+  thread_id: string;
+  mailbox_id: string | null;
+  direction: "inbound" | "outbound";
+  from_address: string;
+  to_addresses: string[];
+  cc_addresses: string[];
+  subject: string;
+  text_body: string | null;
+  html_body: string | null;
+  resend_email_id: string | null;
+  resend_inbound_id: string | null;
+  provider_message_id: string | null;
+  raw_headers: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type EmailMessageAttachment = {
+  id: string;
+  message_id: string;
+  company_id: string;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  storage_path: string | null;
+  created_at: string;
+};
+
 export type CompanyBranding = {
   company_id: string;
   logo_url: string | null;
@@ -132,6 +217,9 @@ export type CompanyDomain = {
   dns_txt_record_id?: string | null;
   hosting_domain_id?: string | null;
   provider_zone_id?: string | null;
+  acquisition_source?: "manual" | "namecheap" | null;
+  registrar_order_id?: string | null;
+  expires_at?: string | null;
 };
 
 export type CompanySettings = {
@@ -324,6 +412,67 @@ export type Database = {
           payment_method: ManualPaymentMethod;
         };
         Update: Partial<Payment>;
+        Relationships: [];
+      };
+      domain_orders: {
+        Row: DomainOrder;
+        Insert: Partial<DomainOrder> & {
+          company_id: string;
+          domain: string;
+          normalized_domain: string;
+        };
+        Update: Partial<DomainOrder>;
+        Relationships: [];
+      };
+      company_email_domains: {
+        Row: CompanyEmailDomain;
+        Insert: Partial<CompanyEmailDomain> & {
+          company_id: string;
+          domain: string;
+          normalized_domain: string;
+        };
+        Update: Partial<CompanyEmailDomain>;
+        Relationships: [];
+      };
+      company_mailboxes: {
+        Row: CompanyMailbox;
+        Insert: Partial<CompanyMailbox> & {
+          company_id: string;
+          email_domain_id: string;
+          local_part: string;
+          full_address: string;
+        };
+        Update: Partial<CompanyMailbox>;
+        Relationships: [];
+      };
+      email_threads: {
+        Row: EmailThread;
+        Insert: Partial<EmailThread> & {
+          company_id: string;
+          subject?: string;
+        };
+        Update: Partial<EmailThread>;
+        Relationships: [];
+      };
+      email_messages: {
+        Row: EmailMessage;
+        Insert: Partial<EmailMessage> & {
+          company_id: string;
+          thread_id: string;
+          direction: "inbound" | "outbound";
+          from_address: string;
+        };
+        Update: Partial<EmailMessage>;
+        Relationships: [];
+      };
+      email_message_attachments: {
+        Row: EmailMessageAttachment;
+        Insert: Partial<EmailMessageAttachment> & {
+          message_id: string;
+          company_id: string;
+          filename: string;
+        };
+        Update: Partial<EmailMessageAttachment>;
         Relationships: [];
       };
       deliveries: {
@@ -584,6 +733,46 @@ export type Database = {
           domain: string;
           is_primary: boolean;
         } | null;
+      };
+      master_create_domain_order: {
+        Args: {
+          p_company_id: string;
+          p_domain: string;
+          p_years?: number;
+          p_cost_cents?: number | null;
+          p_currency?: string;
+          p_contact_snapshot?: Record<string, unknown> | null;
+        };
+        Returns: DomainOrder;
+      };
+      master_complete_domain_order: {
+        Args: {
+          p_order_id: string;
+          p_status: string;
+          p_namecheap_order_id?: string | null;
+          p_company_domain_id?: string | null;
+          p_payment_id?: string | null;
+          p_last_error?: string | null;
+          p_expires_at?: string | null;
+        };
+        Returns: DomainOrder;
+      };
+      master_upsert_company_email_domain: {
+        Args: {
+          p_company_id: string;
+          p_domain: string;
+          p_resend_domain_id?: string | null;
+          p_status?: string;
+          p_last_error?: string | null;
+        };
+        Returns: CompanyEmailDomain;
+      };
+      master_ensure_default_mailbox: {
+        Args: {
+          p_email_domain_id: string;
+          p_local_part?: string;
+        };
+        Returns: CompanyMailbox;
       };
       master_add_company_domain: {
         Args: {

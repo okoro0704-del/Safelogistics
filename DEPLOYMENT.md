@@ -326,16 +326,26 @@ preview context so the Application Hub stays available.
 **Application (already implemented):**
 
 - Master Admin adds / verifies / activates domains via `company_domains`
+- **Buy domain** uses Namecheap (`REGISTRAR_PROVIDER=namecheap`) then attaches
+  the hostname with Netlify (`HOSTING_PROVIDER=netlify`)
 - Middleware resolves hostname → tenant; Master Admin blocked on tenant hosts
 - `Vary: Host` / dynamic rendering used to avoid cross-host cache bleed
 
-**Netlify / DNS (manual):**
+**Netlify / DNS (manual or automated):**
 
-1. Customer points domain (CNAME/A) to your Netlify site per Netlify docs.
-2. Add the domain in Netlify Domain management (or Netlify DNS).
-3. Complete TXT verification + activation in Master Admin UI.
-4. Add `https://tenant-domain/**` to Supabase Auth redirect URLs if users
+1. For purchases: Namecheap registers the domain and writes CNAME/TXT; Netlify
+   Domains API adds the hostname (`NETLIFY_AUTH_TOKEN` + `NETLIFY_SITE_ID`).
+2. For existing domains: customer points CNAME/A to `CUSTOM_DOMAIN_TARGET`, then
+   Master Admin → Add existing domain → Connect → Check Status.
+3. Add `https://tenant-domain/**` to Supabase Auth redirect URLs if users
    will log in / reset password on that host.
+
+**Tenant email (Resend):**
+
+1. Set `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `MAIL_PROVIDER=resend`.
+2. Master Admin → Company → Email → Provision with Resend.
+3. Point Resend inbound webhook to `https://YOUR_PLATFORM/api/webhooks/resend`.
+4. Tenant admins use `/admin/inbox` for the shared `support@` mailbox.
 
 This app does **not** call DNS provider APIs unless you configure optional
 automation env vars.

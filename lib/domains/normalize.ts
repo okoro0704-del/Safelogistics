@@ -54,6 +54,9 @@ export type CompanyDomain = {
   dns_txt_record_id?: string | null;
   hosting_domain_id?: string | null;
   provider_zone_id?: string | null;
+  acquisition_source?: "manual" | "namecheap" | null;
+  registrar_order_id?: string | null;
+  expires_at?: string | null;
 };
 
 export type ResolvedTenant = {

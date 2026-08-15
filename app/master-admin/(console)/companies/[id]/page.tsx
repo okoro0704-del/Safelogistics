@@ -80,6 +80,11 @@ export default async function CompanyDetailPage({
               </Link>
             </Button>
             <Button asChild variant="outline">
+              <Link href={`/master-admin/companies/${company.id}/email`}>
+                Email
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link href={`/master-admin/companies/${company.id}/payments`}>
                 Payments
               </Link>
@@ -110,6 +115,10 @@ export default async function CompanyDetailPage({
           {
             href: `/master-admin/companies/${company.id}/domains`,
             label: "Domains",
+          },
+          {
+            href: `/master-admin/companies/${company.id}/email`,
+            label: "Email",
           },
           {
             href: `/master-admin/companies/${company.id}/payments`,
