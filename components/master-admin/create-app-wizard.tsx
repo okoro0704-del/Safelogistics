@@ -118,7 +118,9 @@ export function CreateAppWizard() {
     adminEmail: string;
     temporaryPassword: string;
   } | null>(null);
-  const [copied, setCopied] = useState<"email" | "password" | null>(null);
+  const [copied, setCopied] = useState<
+    "email" | "password" | "adminLogin" | "customerLogin" | "tracking" | "all" | null
+  >(null);
 
   const step = STEPS[stepIndex]?.id ?? "company";
 
@@ -313,9 +315,10 @@ export function CreateAppWizard() {
       let payload: {
         error?: string;
         hint?: string | null;
-        company?: { id: string; name: string };
+        company?: { id: string; name: string; slug?: string };
         temporary_password?: string;
         admin_email?: string;
+        company_slug?: string;
       };
       try {
         payload = (await response.json()) as typeof payload;
@@ -348,7 +351,10 @@ export function CreateAppWizard() {
       setCreated({
         companyId: payload.company.id,
         companyName: payload.company.name,
-        companySlug: slug,
+        companySlug:
+          payload.company_slug ||
+          payload.company.slug ||
+          slug,
         adminEmail: payload.admin_email ?? adminEmail,
         temporaryPassword: payload.temporary_password,
       });
@@ -366,53 +372,181 @@ export function CreateAppWizard() {
   }
 
   if (created) {
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SITE_URL || "";
+    const previewPath = `/t/${created.companySlug}`;
+    const adminLoginPath = `${previewPath}/login`;
+    const customerLoginPath = `${previewPath}/login`;
+    const adminHomePath = `${previewPath}/admin`;
+    const customerHomePath = `${previewPath}/dashboard`;
+    const trackingPath = `${previewPath}/track`;
+    const adminLoginUrl = `${origin}${adminLoginPath}`;
+    const customerLoginUrl = `${origin}${customerLoginPath}`;
+    const trackingUrl = `${origin}${trackingPath}`;
+    const previewUrl = `${origin}${previewPath}`;
+
+    const handoffText = [
+      `App: ${created.companyName}`,
+      `Slug: ${created.companySlug}`,
+      `Status: Active`,
+      ``,
+      `Admin login portal: ${adminLoginUrl}`,
+      `Admin home (after sign-in): ${origin}${adminHomePath}`,
+      `Admin email: ${created.adminEmail}`,
+      `Temporary password: ${created.temporaryPassword}`,
+      ``,
+      `Customer login portal: ${customerLoginUrl}`,
+      `Customer home (after sign-in): ${origin}${customerHomePath}`,
+      `(Customers are created by the tenant admin; they use the same login page.)`,
+      ``,
+      `Public tracking: ${trackingUrl}`,
+      `App preview: ${previewUrl}`,
+      ``,
+      `Custom domain: add later under Company → Domains (optional).`,
+    ].join("\n");
+
     return (
       <Card className="max-w-2xl">
         <CardHeader>
           <div className="mb-2 inline-flex size-10 items-center justify-center rounded-full bg-success/15 text-success">
             <CheckCircle2 className="size-5" aria-hidden />
           </div>
-          <CardTitle>App Created</CardTitle>
+          <CardTitle>App created — deliverables</CardTitle>
           <CardDescription>
-            {created.companyName} is active. Share administrator access
-            securely — the temporary password is shown only once.
+            Share these with the tenant securely. The temporary password is
+            shown only once.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
-            <p>
-              <span className="text-muted-foreground">App:</span>{" "}
-              {created.companyName}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Status:</span> Active
-            </p>
-            <p>
-              <span className="text-muted-foreground">Administrator:</span>{" "}
-              {created.adminEmail}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Preview:</span>{" "}
-              <Link
-                className="font-medium text-primary underline-offset-2 hover:underline"
-                href={`/t/${created.companySlug}`}
-                target="_blank"
-              >
-                /t/{created.companySlug}
-              </Link>
-            </p>
-            <p className="font-mono">
-              <span className="font-sans text-muted-foreground">
-                Temporary password:
-              </span>{" "}
-              {created.temporaryPassword}
-            </p>
+          <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                App
+              </p>
+              <p className="mt-1">
+                <span className="text-muted-foreground">Name:</span>{" "}
+                {created.companyName}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Slug:</span>{" "}
+                <span className="font-mono">{created.companySlug}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Status:</span> Active
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Admin portal
+              </p>
+              <p className="mt-1 break-all">
+                <span className="text-muted-foreground">Login:</span>{" "}
+                <Link
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  href={adminLoginPath}
+                  target="_blank"
+                >
+                  {adminLoginUrl}
+                </Link>
+              </p>
+              <p className="break-all text-muted-foreground">
+                After sign-in: {origin}
+                {adminHomePath}
+              </p>
+              <p className="mt-1">
+                <span className="text-muted-foreground">Email:</span>{" "}
+                {created.adminEmail}
+              </p>
+              <p className="font-mono">
+                <span className="font-sans text-muted-foreground">
+                  Temporary password:
+                </span>{" "}
+                {created.temporaryPassword}
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Customer portal
+              </p>
+              <p className="mt-1 break-all">
+                <span className="text-muted-foreground">Login:</span>{" "}
+                <Link
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  href={customerLoginPath}
+                  target="_blank"
+                >
+                  {customerLoginUrl}
+                </Link>
+              </p>
+              <p className="break-all text-muted-foreground">
+                After sign-in: {origin}
+                {customerHomePath}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Create customers from the admin portal; they sign in with the
+                same login page.
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Public tracking
+              </p>
+              <p className="mt-1 break-all">
+                <Link
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  href={trackingPath}
+                  target="_blank"
+                >
+                  {trackingUrl}
+                </Link>
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                Optional: attach a custom domain later under Company → Domains.
+                Until then, use the preview links above.
+              </p>
+            </div>
           </div>
+
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="secondary">
-              <Link href={`/t/${created.companySlug}`} target="_blank">
-                Open preview
-              </Link>
+            <Button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(handoffText);
+                setCopied("all");
+                success("All deliverables copied");
+              }}
+            >
+              <Copy className="size-4" aria-hidden />
+              {copied === "all" ? "Copied" : "Copy all deliverables"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                await navigator.clipboard.writeText(adminLoginUrl);
+                setCopied("adminLogin");
+                success("Admin login URL copied");
+              }}
+            >
+              <Copy className="size-4" aria-hidden />
+              {copied === "adminLogin" ? "Copied" : "Copy admin login"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                await navigator.clipboard.writeText(customerLoginUrl);
+                setCopied("customerLogin");
+                success("Customer login URL copied");
+              }}
+            >
+              <Copy className="size-4" aria-hidden />
+              {copied === "customerLogin" ? "Copied" : "Copy customer login"}
             </Button>
             <Button
               type="button"
@@ -424,7 +558,7 @@ export function CreateAppWizard() {
               }}
             >
               <Copy className="size-4" aria-hidden />
-              {copied === "email" ? "Copied" : "Copy Admin Email"}
+              {copied === "email" ? "Copied" : "Copy admin email"}
             </Button>
             <Button
               type="button"
@@ -438,13 +572,18 @@ export function CreateAppWizard() {
               <Copy className="size-4" aria-hidden />
               {copied === "password" ? "Copied" : "Copy password"}
             </Button>
+            <Button asChild variant="secondary">
+              <Link href={previewPath} target="_blank">
+                Open preview
+              </Link>
+            </Button>
             <Button asChild>
               <Link href={`/master-admin/companies/${created.companyId}`}>
-                View Company
+                View company
               </Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/master-admin/companies/new">Create Another App</Link>
+              <Link href="/master-admin/companies/new">Create another app</Link>
             </Button>
           </div>
         </CardContent>

@@ -578,6 +578,17 @@ export async function POST(request: Request) {
       payment: provisioned?.payment ?? null,
       temporary_password: password,
       admin_email: fields.admin_email,
+      company_slug: fields.company_slug,
+      deliverables: {
+        preview_path: `/t/${fields.company_slug}`,
+        admin_login_path: `/t/${fields.company_slug}/login`,
+        customer_login_path: `/t/${fields.company_slug}/login`,
+        admin_home_path: `/t/${fields.company_slug}/admin`,
+        customer_home_path: `/t/${fields.company_slug}/dashboard`,
+        tracking_path: `/t/${fields.company_slug}/track`,
+        admin_email: fields.admin_email,
+        temporary_password: password,
+      },
       message:
         "App created successfully. Share the administrator credentials securely. The password is shown only once.",
     });
