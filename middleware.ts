@@ -151,7 +151,10 @@ export async function middleware(request: NextRequest) {
           supabase,
         );
         if (!previewTenant) {
-          return new NextResponse("App not found.", { status: 404 });
+          return new NextResponse(
+            "App not found. Confirm the company slug is active in Master Admin. If it exists, run scripts/resolve-tenant-by-slug.sql in the Supabase SQL Editor (path preview RPC).",
+            { status: 404 },
+          );
         }
         tenant = previewTenant;
         previewSlug = parsed.slug;

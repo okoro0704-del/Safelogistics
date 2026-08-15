@@ -103,10 +103,9 @@ export async function resolveCompanyFromSlug(
   });
 
   if (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("resolveCompanyFromSlug", error);
-    }
-    cacheSet(cacheKey, null);
+    // Do not cache RPC failures (missing migration looks like "not found" for 30s).
+    const err = error as { message?: string; code?: string };
+    console.warn("resolveCompanyFromSlug", err?.code ?? "", err?.message ?? error);
     return null;
   }
 
