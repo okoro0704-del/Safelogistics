@@ -36,16 +36,11 @@ import {
   DEFAULT_CURRENCY,
   DEFAULT_TIMEZONE,
 } from "@/lib/company-settings";
-import {
-  formatMoneyCents,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_METHODS,
-} from "@/lib/payments/constants";
+import { buildTenantDeliverableUrls } from "@/lib/domains/tenant-urls";
 import { cn, isValidCompanySlug, normalizeCompanySlug } from "@/lib/utils";
 
 const STEPS = [
   { id: "company", label: "Company" },
-  { id: "payment", label: "Payment" },
   { id: "admin", label: "Administrator" },
   { id: "branding", label: "Branding" },
   { id: "config", label: "Configuration" },
@@ -56,7 +51,6 @@ type StepId = (typeof STEPS)[number]["id"];
 
 const PROGRESS_MESSAGES = [
   "Creating company…",
-  "Recording payment…",
   "Creating administrator…",
   "Configuring branding…",
   "Applying settings…",
@@ -98,18 +92,6 @@ export function CreateAppWizard() {
   const [supportEmail, setSupportEmail] = useState("");
   const [supportPhone, setSupportPhone] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-
-  const [paymentReceived, setPaymentReceived] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<
-    (typeof PAYMENT_METHODS)[number]
-  >("bank_transfer");
-  const [paymentAmountCents, setPaymentAmountCents] = useState("");
-  const [paymentCurrency, setPaymentCurrency] = useState(DEFAULT_CURRENCY);
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
-  const [paymentReference, setPaymentReference] = useState("");
-  const [paymentNotes, setPaymentNotes] = useState("");
 
   const [created, setCreated] = useState<{
     companyId: string;
@@ -223,17 +205,6 @@ export function CreateAppWizard() {
         return "Please wait while we check the slug.";
       }
     }
-    if (id === "payment") {
-      if (paymentReceived) {
-        const amount = Number(paymentAmountCents);
-        if (!Number.isInteger(amount) || amount < 0) {
-          return "Enter payment amount in integer cents.";
-        }
-        if (!paymentMethod) {
-          return "Select a payment method.";
-        }
-      }
-    }
     if (id === "admin") {
       if (!adminName.trim()) return "Administrator name is required.";
       if (!adminEmail.trim()) return "Administrator email is required.";
@@ -263,7 +234,6 @@ export function CreateAppWizard() {
   function onSubmit() {
     const early =
       validateStep("company") ||
-      validateStep("payment") ||
       validateStep("admin") ||
       validateStep("branding");
     if (early) {
@@ -282,19 +252,6 @@ export function CreateAppWizard() {
       form.set("admin_email", adminEmail.trim());
       form.set("timezone", timezone);
       form.set("currency", currency);
-      form.set("payment_received", paymentReceived ? "true" : "false");
-      if (paymentReceived) {
-        form.set("payment_amount_cents", paymentAmountCents || "0");
-        form.set("payment_currency", paymentCurrency);
-        form.set("payment_method", paymentMethod);
-        if (paymentDate) form.set("payment_date", paymentDate);
-        if (paymentReference.trim()) {
-          form.set("payment_reference", paymentReference.trim());
-        }
-        if (paymentNotes.trim()) {
-          form.set("payment_notes", paymentNotes.trim());
-        }
-      }
       if (supportEmail.trim()) form.set("support_email", supportEmail.trim());
       if (supportPhone.trim()) form.set("support_phone", supportPhone.trim());
       if (websiteUrl.trim()) form.set("website_url", websiteUrl.trim());
@@ -372,20 +329,20 @@ export function CreateAppWizard() {
   }
 
   if (created) {
-    const origin =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL || "";
-    const previewPath = `/t/${created.companySlug}`;
-    const adminLoginPath = `${previewPath}/login`;
-    const customerLoginPath = `${previewPath}/login`;
-    const adminHomePath = `${previewPath}/admin`;
-    const customerHomePath = `${previewPath}/dashboard`;
-    const trackingPath = `${previewPath}/track`;
-    const adminLoginUrl = `${origin}${adminLoginPath}`;
-    const customerLoginUrl = `${origin}${customerLoginPath}`;
-    const trackingUrl = `${origin}${trackingPath}`;
-    const previewUrl = `${origin}${previewPath}`;
+    const urls = buildTenantDeliverableUrls(
+      created.companySlug,
+      typeof window !== "undefined" ? window.location.origin : null,
+    );
+    const {
+      previewPath,
+      adminLoginUrl,
+      customerLoginUrl,
+      adminHomeUrl,
+      customerHomeUrl,
+      trackingUrl,
+      previewUrl,
+      usesManagedSubdomain,
+    } = urls;
 
     const handoffText = [
       `App: ${created.companyName}`,
@@ -393,19 +350,28 @@ export function CreateAppWizard() {
       `Status: Active`,
       ``,
       `Admin login portal: ${adminLoginUrl}`,
-      `Admin home (after sign-in): ${origin}${adminHomePath}`,
+      `Admin home (after sign-in): ${adminHomeUrl}`,
       `Admin email: ${created.adminEmail}`,
       `Temporary password: ${created.temporaryPassword}`,
       ``,
       `Customer login portal: ${customerLoginUrl}`,
-      `Customer home (after sign-in): ${origin}${customerHomePath}`,
+      `Customer home (after sign-in): ${customerHomeUrl}`,
       `(Customers are created by the tenant admin; they use the same login page.)`,
       ``,
       `Public tracking: ${trackingUrl}`,
       `App preview: ${previewUrl}`,
       ``,
-      `Custom domain: add later under Company → Domains (optional).`,
+      usesManagedSubdomain
+        ? `Managed subdomain: tenant URLs use the platform subdomain.`
+        : `Custom domain: add later under Company → Domains (optional).`,
     ].join("\n");
+
+    const previewHref = usesManagedSubdomain ? previewUrl : previewPath;
+    const adminLoginHref = usesManagedSubdomain ? adminLoginUrl : previewPath + "/login";
+    const customerLoginHref = usesManagedSubdomain
+      ? customerLoginUrl
+      : previewPath + "/login";
+    const trackingHref = usesManagedSubdomain ? trackingUrl : previewPath + "/track";
 
     return (
       <Card className="max-w-2xl">
@@ -436,6 +402,11 @@ export function CreateAppWizard() {
               <p>
                 <span className="text-muted-foreground">Status:</span> Active
               </p>
+              {usesManagedSubdomain ? (
+                <p className="mt-2 text-muted-foreground">
+                  Tenant URLs use the managed subdomain.
+                </p>
+              ) : null}
             </div>
 
             <div className="border-t border-border pt-3">
@@ -446,15 +417,17 @@ export function CreateAppWizard() {
                 <span className="text-muted-foreground">Login:</span>{" "}
                 <Link
                   className="font-medium text-primary underline-offset-2 hover:underline"
-                  href={adminLoginPath}
+                  href={adminLoginHref}
                   target="_blank"
+                  {...(usesManagedSubdomain
+                    ? { rel: "noopener noreferrer" }
+                    : {})}
                 >
                   {adminLoginUrl}
                 </Link>
               </p>
               <p className="break-all text-muted-foreground">
-                After sign-in: {origin}
-                {adminHomePath}
+                After sign-in: {adminHomeUrl}
               </p>
               <p className="mt-1">
                 <span className="text-muted-foreground">Email:</span>{" "}
@@ -476,15 +449,17 @@ export function CreateAppWizard() {
                 <span className="text-muted-foreground">Login:</span>{" "}
                 <Link
                   className="font-medium text-primary underline-offset-2 hover:underline"
-                  href={customerLoginPath}
+                  href={customerLoginHref}
                   target="_blank"
+                  {...(usesManagedSubdomain
+                    ? { rel: "noopener noreferrer" }
+                    : {})}
                 >
                   {customerLoginUrl}
                 </Link>
               </p>
               <p className="break-all text-muted-foreground">
-                After sign-in: {origin}
-                {customerHomePath}
+                After sign-in: {customerHomeUrl}
               </p>
               <p className="mt-1 text-muted-foreground">
                 Create customers from the admin portal; they sign in with the
@@ -499,15 +474,19 @@ export function CreateAppWizard() {
               <p className="mt-1 break-all">
                 <Link
                   className="font-medium text-primary underline-offset-2 hover:underline"
-                  href={trackingPath}
+                  href={trackingHref}
                   target="_blank"
+                  {...(usesManagedSubdomain
+                    ? { rel: "noopener noreferrer" }
+                    : {})}
                 >
                   {trackingUrl}
                 </Link>
               </p>
               <p className="mt-2 text-muted-foreground">
-                Optional: attach a custom domain later under Company → Domains.
-                Until then, use the preview links above.
+                {usesManagedSubdomain
+                  ? "Links above use the managed tenant subdomain."
+                  : "Optional: attach a custom domain later under Company → Domains. Until then, use the preview links above."}
               </p>
             </div>
           </div>
@@ -573,7 +552,13 @@ export function CreateAppWizard() {
               {copied === "password" ? "Copied" : "Copy password"}
             </Button>
             <Button asChild variant="secondary">
-              <Link href={previewPath} target="_blank">
+              <Link
+                href={previewHref}
+                target="_blank"
+                {...(usesManagedSubdomain
+                  ? { rel: "noopener noreferrer" }
+                  : {})}
+              >
                 Open preview
               </Link>
             </Button>
@@ -718,119 +703,6 @@ export function CreateAppWizard() {
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
-            </div>
-          ) : null}
-
-          {step === "payment" ? (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Optionally record an offline payment already received. No card
-                data is collected.
-              </p>
-              <div className="space-y-2">
-                <Label>Has payment been received?</Label>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      checked={paymentReceived}
-                      onChange={() => setPaymentReceived(true)}
-                    />
-                    Yes
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      checked={!paymentReceived}
-                      onChange={() => setPaymentReceived(false)}
-                    />
-                    No
-                  </label>
-                </div>
-              </div>
-
-              {paymentReceived ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="pay-amount">Amount (cents)</Label>
-                    <Input
-                      id="pay-amount"
-                      inputMode="numeric"
-                      value={paymentAmountCents}
-                      onChange={(e) => setPaymentAmountCents(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {formatMoneyCents(
-                        Number(paymentAmountCents) || 0,
-                        paymentCurrency,
-                      )}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pay-currency">Currency</Label>
-                    <select
-                      id="pay-currency"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={paymentCurrency}
-                      onChange={(e) => setPaymentCurrency(e.target.value)}
-                    >
-                      {COMPANY_CURRENCIES.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pay-method">Payment method</Label>
-                    <select
-                      id="pay-method"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={paymentMethod}
-                      onChange={(e) =>
-                        setPaymentMethod(
-                          e.target.value as (typeof PAYMENT_METHODS)[number],
-                        )
-                      }
-                    >
-                      {PAYMENT_METHODS.map((m) => (
-                        <option key={m} value={m}>
-                          {PAYMENT_METHOD_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pay-date">Payment date</Label>
-                    <Input
-                      id="pay-date"
-                      type="date"
-                      value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pay-ref">Reference (optional)</Label>
-                    <Input
-                      id="pay-ref"
-                      value={paymentReference}
-                      onChange={(e) => setPaymentReference(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="pay-notes">Notes (optional)</Label>
-                    <Input
-                      id="pay-notes"
-                      value={paymentNotes}
-                      onChange={(e) => setPaymentNotes(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
-                  No payment record will be created.
-                </p>
-              )}
             </div>
           ) : null}
 
@@ -1028,25 +900,6 @@ export function CreateAppWizard() {
                 <p className="font-mono text-muted-foreground">{slug}</p>
                 {description ? (
                   <p className="mt-2 text-muted-foreground">{description}</p>
-                ) : null}
-              </section>
-              <section className="rounded-lg border border-border p-4">
-                <h3 className="font-semibold">Payment</h3>
-                <p className="mt-1 font-medium">
-                  {paymentReceived
-                    ? `Payment received (${formatMoneyCents(
-                        Number(paymentAmountCents) || 0,
-                        paymentCurrency,
-                      )} · ${PAYMENT_METHOD_LABELS[paymentMethod]})`
-                    : "No payment recorded"}
-                </p>
-                {paymentReceived && paymentDate ? (
-                  <p className="text-muted-foreground">{paymentDate}</p>
-                ) : null}
-                {paymentReceived && paymentReference.trim() ? (
-                  <p className="text-muted-foreground">
-                    Ref: {paymentReference.trim()}
-                  </p>
                 ) : null}
               </section>
               <section className="rounded-lg border border-border p-4">

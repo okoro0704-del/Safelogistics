@@ -27,7 +27,7 @@ type Status = {
 export function MasterAdminSetupForm() {
   const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null);
-  const [email, setEmail] = useState("master@safelogistics.app");
+  const [email, setEmail] = useState("master@parcelmovement.app");
   const [password, setPassword] = useState("TempMaster123!");
   const [fullName, setFullName] = useState("Platform Master");
   const [formError, setFormError] = useState<string | null>(null);
@@ -155,7 +155,7 @@ export function MasterAdminSetupForm() {
         <div className="space-y-1.5">
           <CardTitle className="text-2xl">Create Master Admin</CardTitle>
           <CardDescription>
-            One-time setup for SafeLogistics. Uses the Auth Admin API (not SQL
+            One-time setup for Parcel Movement. Uses the Auth Admin API (not SQL
             password hashes). Connected to{" "}
             <span className="font-mono text-xs">{status.supabaseHost}</span>
           </CardDescription>

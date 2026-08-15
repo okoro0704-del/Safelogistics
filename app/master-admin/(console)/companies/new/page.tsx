@@ -16,7 +16,7 @@ export default function NewCompanyPage() {
       />
       <PageHeader
         title="Create New App"
-        description="Provision a white-label tenant with optional offline payment record."
+        description="Provision a white-label tenant with admin access and managed subdomain URLs."
       />
       <CreateAppWizard />
     </div>

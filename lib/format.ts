@@ -121,7 +121,7 @@ export function friendlyErrorMessage(error: unknown, fallback: string) {
     return "Your session is not recognized as Master Admin. Sign out and sign in again at /master-admin/login.";
   }
   if (lower.includes("payment amount and method")) {
-    return "Payment amount and method are required when marking payment as received.";
+    return "Unable to create the app. Please try again or contact support.";
   }
   if (lower.includes("invalid currency") || lower.includes("3-letter")) {
     return "Invalid currency code.";

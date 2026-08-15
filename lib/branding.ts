@@ -4,8 +4,8 @@
  */
 
 export const PLATFORM_DEFAULTS = {
-  appName: "SafeLogistics",
-  shortName: "SafeLogistics",
+  appName: "Parcel Movement",
+  shortName: "Parcel Movement",
   tagline: "White-label delivery platform for logistics operators.",
   description:
     "Multi-tenant delivery tracking platform. Create branded tenant apps from the Application Hub.",

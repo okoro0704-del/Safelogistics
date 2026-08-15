@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Tenant white-label landing (custom domains only).
- * Platform host (e.g. safeogistics.netlify.app) redirects `/` → Application Hub.
+ * Platform host (e.g. pm.webfinance.app) redirects `/` → Application Hub.
  */
 export default async function LandingPage() {
   const ctx = await getRequestTenantContext();

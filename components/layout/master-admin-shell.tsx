@@ -2,7 +2,6 @@
 
 import {
   Building2,
-  CreditCard,
   LayoutDashboard,
   Settings,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import type { ResolvedBrand } from "@/lib/branding";
 const navItems = [
   { href: "/master-admin", label: "Application Hub", icon: LayoutDashboard },
   { href: "/master-admin/companies", label: "Apps", icon: Building2 },
-  { href: "/master-admin/billing", label: "Payments", icon: CreditCard },
   { href: "/master-admin/settings", label: "Settings", icon: Settings },
 ];
 

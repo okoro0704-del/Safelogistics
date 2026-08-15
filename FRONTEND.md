@@ -38,8 +38,6 @@ Next.js (App Router) + TypeScript + Tailwind CSS, talking directly to the existi
 | `/master-admin/companies/[id]/branding` | `master_admin` | Branding editor |
 | `/master-admin/companies/[id]/settings` | `master_admin` | App settings editor |
 | `/master-admin/companies/[id]/domains` | `master_admin` | Custom domains + DNS verify |
-| `/master-admin/companies/[id]/payments` | `master_admin` | Offline payment history |
-| `/master-admin/billing` | `master_admin` | Payment records + totals |
 | `/suspended` | Auth | Shown when a company is suspended |
 
 ## Auth flow
@@ -77,11 +75,12 @@ Tenant branding is stored in `company_branding` (logo, colors, tagline, support 
 
 Operational settings live in `company_settings` (`lib/company-settings.ts`): timezone, currency, support contacts.
 
-Master Admin provisions a full app at `/master-admin/companies/new`  
-(Company → Payment → Admin → Branding → Configuration → Review).  
-Edit later at `/master-admin/companies/[id]/branding`, `/…/settings`, and `/…/payments`.
+Master Admin provisions a full app at `/master-admin/companies/new`
+(Company → Admin → Branding → Configuration → Review).
+Edit later at `/master-admin/companies/[id]/branding` and `/…/settings`.
 
-See **[BILLING.md](./BILLING.md)**. The platform does not use plans or subscriptions. The Master Admin manually receives payment from customers and may record those payments in the platform. The platform does not process online payments.
+There are **no** in-app payment or billing screens. Tenant handoff URLs prefer
+`https://{slug}.apps.webfinance.app` when `NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE` is set.
 
 Admin/Customer shells and public `/track` apply resolved CSS variables (`--brand-primary`, `--primary`, …). Master Admin always uses platform defaults.
 
@@ -91,17 +90,19 @@ Landing, login, and `/track` use `force-dynamic` so tenant branding is not stati
 
 Middleware resolves `request.nextUrl.hostname` via `resolveCompanyFromHostname` and sets trusted request headers (`x-tenant-company-id`, …) after clearing spoofed values.
 
-- Platform hosts (`localhost`, configured `NEXT_PUBLIC_PLATFORM_HOSTS`, `*.vercel.app`) never resolve as tenants
-- `/master-admin` and `/api/master-admin/*` are blocked on custom domains
+- Platform hosts (`localhost`, configured `NEXT_PUBLIC_PLATFORM_HOSTS`, `*.vercel.app`, `*.netlify.app`) never resolve as tenants
+- Automatic tenant hosts `{slug}.{NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE}` resolve via company slug
+- Path preview `/t/{slug}` remains a platform-host testing fallback
+- `/master-admin` and `/api/master-admin/*` are blocked on custom / tenant subdomain hosts
 - Admin/customer users must belong to the hostname company (hostname ≠ authorization)
-- Login, landing, and `/track` apply tenant branding when a custom domain is active
+- Login, landing, and `/track` apply tenant branding when a tenant host is active
 - Tenant `/track` scopes lookups server-side so other companies’ tracking numbers are not revealed
 
-Master Admin **Domains** UI: Add → Connect Domain (auto DNS/hosting when configured) → Check Status → Active. Manual DNS instructions always available.
+Master Admin **Domains** UI: Add → Connect Domain (auto DNS/hosting when configured) → Check Status → Active. Manual DNS instructions always available. Managed `*.apps.webfinance.app` hosts skip per-tenant hosting registration.
 
 Local testing: add `swift.localhost`, Connect Domain (mock providers), Check Status, visit `http://swift.localhost:3000`.
 
-Domain purchasing and automatic registrar flows are **not** implemented. Offline payment records (no plans/subscriptions, no online gateway) — see **[BILLING.md](./BILLING.md)** and **[SECURITY.md](./SECURITY.md)**.
+Optional Namecheap purchase is Master Admin–assisted. There is no payment/billing subsystem — see **[SECURITY.md](./SECURITY.md)**.
 
 ## Maps
 

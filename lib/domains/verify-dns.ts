@@ -2,7 +2,10 @@ import { promises as dns } from "dns";
 
 import {
   isLocalDevHostname,
+  legacyTxtRecordName,
+  legacyTxtRecordValue,
   txtRecordFqdn,
+  txtRecordName,
   txtRecordValue,
 } from "@/lib/domains/normalize";
 
@@ -13,18 +16,21 @@ export type DnsVerificationResult =
 
 /**
  * Server-side TXT verification for custom domains.
- * Looks for routeledger-verification=<token> among TXT records at
- * _routeledger.<domain>.
+ * Accepts current Parcel Movement records and legacy RouteLedger labels.
  */
 export async function verifyDomainTxtRecord(options: {
   normalizedDomain: string;
   verificationToken: string;
 }): Promise<DnsVerificationResult> {
-  const expected = txtRecordValue(options.verificationToken);
-  const fqdn = txtRecordFqdn(options.normalizedDomain);
+  const expected = [
+    txtRecordValue(options.verificationToken),
+    legacyTxtRecordValue(options.verificationToken),
+  ];
+  const hosts = [
+    txtRecordFqdn(options.normalizedDomain),
+    `${legacyTxtRecordName()}.${options.normalizedDomain}`,
+  ];
 
-  // Local development: *.localhost cannot use public DNS — allow verify when
-  // DOMAIN_ALLOW_LOCALHOST_VERIFY is not explicitly false.
   const allowLocal =
     process.env.DOMAIN_ALLOW_LOCALHOST_VERIFY !== "false" &&
     process.env.NODE_ENV === "development" &&
@@ -34,28 +40,42 @@ export async function verifyDomainTxtRecord(options: {
     return { ok: true, matched: true };
   }
 
-  try {
-    const records = await dns.resolveTxt(fqdn);
-    const flattened = records.map((parts) => parts.join(""));
-    const matched = flattened.some(
-      (value) => value.trim() === expected || value.includes(expected),
-    );
-    if (matched) {
-      return { ok: true, matched: true };
+  let sawLookupFailure = false;
+
+  for (const fqdn of hosts) {
+    try {
+      const records = await dns.resolveTxt(fqdn);
+      const flattened = records.map((parts) => parts.join(""));
+      const matched = flattened.some((value) =>
+        expected.some(
+          (token) => value.trim() === token || value.includes(token),
+        ),
+      );
+      if (matched) {
+        return { ok: true, matched: true };
+      }
+    } catch (error) {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code?: string }).code)
+          : "";
+      if (code === "ENODATA" || code === "ENOTFOUND" || code === "ENAMEERR") {
+        continue;
+      }
+      sawLookupFailure = true;
     }
-    return { ok: true, matched: false, reason: "not_found" };
-  } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code?: string }).code)
-        : "";
-    if (code === "ENODATA" || code === "ENOTFOUND" || code === "ENAMEERR") {
-      return { ok: true, matched: false, reason: "not_found" };
-    }
+  }
+
+  if (sawLookupFailure) {
     return {
       ok: false,
       reason: "lookup_failed",
       message: "DNS lookup failed",
     };
   }
+
+  return { ok: true, matched: false, reason: "not_found" };
 }
+
+// Keep exports referenced for call sites that import names
+void txtRecordName;

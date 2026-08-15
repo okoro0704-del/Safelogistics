@@ -12,14 +12,15 @@ export default function MasterAdminSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Platform settings"
-        description="Platform-wide preferences. Tenant domains and offline payments are managed per company."
+        description="Platform-wide preferences. Tenant domains and branding are managed per company."
       />
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle>Platform notes</CardTitle>
           <CardDescription>
-            There are no plans or subscriptions. Offline payment records live
-            under Payments. Domains and DNS are available under each company.
+            Parcel Movement has no plans, subscriptions, or in-app billing.
+            Automatic tenant hosts use {"{slug}"}.apps.webfinance.app. Custom
+            domains remain available under each company.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">

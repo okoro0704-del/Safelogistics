@@ -48,19 +48,20 @@ Suspended companies cannot perform admin/customer operations (`is_admin` / custo
 Master Admin RPCs (authenticated, `SECURITY DEFINER`, role-checked):
 
 - `master_platform_stats`
-- `master_provision_company` (full tenant: company + admin + settings + optional branding + optional payment)
+- `master_provision_company` (full tenant: company + admin + settings + optional branding)
 - `master_register_company_with_admin` (legacy wrapper → provision)
 - `master_register_company_admin`
 - `master_set_company_status`
 - `master_upsert_company_settings`
 - `master_rollback_company_provision` (compensating cleanup)
-- Manual payments: `master_record_payment`, `master_void_payment`, `master_payment_stats`
 
 Server-only APIs under `/api/master-admin/*` use the session to verify Master Admin, then the service role only for Auth user creation (never exposed to the browser).
 
 Custom domains + DNS/hosting provisioning are supported via `/api/master-admin/.../domains` (see README / SECURITY.md).
 
-**Manual payments** are documented in **[BILLING.md](./BILLING.md)**. The platform does not use plans or subscriptions. The Master Admin manually receives payment from customers and may record those payments in the platform. The platform does not process online payments.
+Automatic tenant hosts use `{slug}.{NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE}` (e.g. `acme.apps.webfinance.app`) and do not require per-tenant domain rows.
+
+There is **no** payment/billing subsystem. Historical payment RPCs/tables are dropped by migration `20260815230000_remove_payments_add_subdomains.sql`.
 
 ### Company branding
 
@@ -105,23 +106,26 @@ Infrastructure fields (safe metadata only — no API secrets): `dns_provider`, `
 Provider abstraction:
 
 - `DNS_PROVIDER=mock|cloudflare|none`
-- `HOSTING_PROVIDER=mock|vercel|none`
+- `HOSTING_PROVIDER=mock|vercel|netlify|none`
 - `CUSTOM_DOMAIN_TARGET` — CNAME/ALIAS target for app traffic
+- `NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE` — apex for automatic `{slug}.…` tenant hosts
 
-Verification TXT remains required: `_routeledger.<domain>` = `routeledger-verification=<token>`.
+Verification TXT remains required for **purchased/custom** domains:
+`_parcelmovement.<domain>` = `parcelmovement-verification=<token>`
+(legacy `_routeledger` / `routeledger-verification=` still accepted).
 
 RPCs: `resolve_tenant_by_hostname`, `master_set_domain_lifecycle`, `master_mark_domain_verified`, …
 
 APIs: `…/domains/[domainId]/provision`, `…/status`, existing verify/PATCH.
 
-Automatic domain registration and purchasing are **not** implemented. SaaS billing is manual (see BILLING.md) — not tied to domain providers.
+Managed platform subdomains under `NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE` bypass per-tenant Netlify/DNS registration. Optional Namecheap purchase remains available for custom domains (registrar price audited on `domain_orders`; no payment records).
 
 ### App provisioning
 
 `POST /api/master-admin/companies` (JSON or multipart) creates:
 
 1. Auth admin user (service role)
-2. Company + admin profile + settings + optional branding + optional payment (`master_provision_company`)
+2. Company + admin profile + settings + optional branding (`master_provision_company`)
 3. Optional logo/favicon upload
 4. Compensating rollback on failure (Auth user + DB tenant + storage)
 
@@ -347,6 +351,7 @@ Full security model: **[SECURITY.md](./SECURITY.md)**.
 | `20260802010000_rollback_prompt14_billing.sql` | Removes rolled-back external-style Prompt 14 billing if present |
 | `20260802120000_manual_payments_subscriptions.sql` | Prompt 14 plans/subscriptions/payments (superseded) |
 | `20260803120000_remove_plans_keep_payments.sql` | Removes plans/subscriptions; keeps simple payments |
+| `20260815230000_remove_payments_add_subdomains.sql` | Drops payments; payment-free provision; domain_orders unlink |
 
 Edge Function: `supabase/functions/create-customer` (legacy; prefer Next.js `/api/admin/customers`)
 

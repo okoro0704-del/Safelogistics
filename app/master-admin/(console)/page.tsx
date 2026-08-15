@@ -39,7 +39,7 @@ export default async function MasterAdminDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Application Hub"
-        description="Create and manage every white-label delivery app (tenant) from one place. Create RouteLedger first as your primary tenant, then add more client apps."
+        description="Create and manage every white-label delivery app (tenant) from one place."
         actions={
           <Button asChild>
             <Link href="/master-admin/companies/new">

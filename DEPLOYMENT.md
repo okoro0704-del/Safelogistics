@@ -96,9 +96,10 @@ This applies every file under `supabase/migrations/` in chronological order.
 
 - Tables: `companies`, `profiles`, `deliveries`, `delivery_stops`,
   `delivery_location_history`, `company_branding`, `company_settings`,
-  `company_domains`, `payments`
+  `company_domains`
 - No production use of: `plans`, `plan_limits`, `plan_features`,
-  `company_subscriptions`, `subscription_events`, `company_usage_periods`
+  `company_subscriptions`, `subscription_events`, `company_usage_periods`,
+  `payments`
   (historical migrations may create then drop these)
 
 **Do not** run against production:
@@ -406,12 +407,56 @@ npx supabase db reset         # wipes DB + reseeds — local only
 
 ---
 
-## Payments (unchanged product model)
+## Wildcard tenant subdomains (Parcel Movement)
 
-Master Admin records offline payments only. No Stripe / Paystack /
-Flutterwave / plans / subscriptions / checkout.
+Platform host: **`pm.webfinance.app`**  
+Tenant hosts: **`{slug}.apps.webfinance.app`**
 
-See [BILLING.md](./BILLING.md).
+### DNS
+
+Create a wildcard CNAME (or ALIAS) for the apps apex:
+
+```text
+*.apps.webfinance.app  →  pm.webfinance.app
+```
+
+(Or point `*.apps.webfinance.app` at the same Netlify load balancer / site target you use for `pm.webfinance.app`.)
+
+### Netlify
+
+1. Domain management → add `apps.webfinance.app`
+2. Configure wildcard `*.apps.webfinance.app` on the **same** site as `pm.webfinance.app`
+3. Wait for Netlify to issue the **wildcard TLS certificate** before expecting tenant hosts to work
+
+### Environment variables (production)
+
+```text
+NEXT_PUBLIC_PLATFORM_HOSTS=pm.webfinance.app
+NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE=apps.webfinance.app
+NEXT_PUBLIC_SITE_URL=https://pm.webfinance.app
+```
+
+Do **not** list `apps.webfinance.app` as a platform host. Only `pm.webfinance.app` is the Application Hub / Master Admin host.
+
+### Smoke tests
+
+1. Open `https://pm.webfinance.app/master-admin` — Master Admin only on platform host
+2. Create an app with slug `acme` — deliverables should prefer `https://acme.apps.webfinance.app/...`
+3. Visit `https://acme.apps.webfinance.app/login` and `/track` — tenant branding + isolation
+4. Confirm `/t/acme` still works as a platform-host path preview fallback
+5. Confirm there is no `/master-admin/billing` or company payments UI
+
+Managed `*.apps.webfinance.app` hosts skip per-tenant Netlify domain registration. Purchased custom domains still use Namecheap + Netlify when configured.
+
+---
+
+## Payments removed
+
+Parcel Movement does **not** include payment or billing features. Historical
+migrations may create a `payments` table; migration
+`20260815230000_remove_payments_add_subdomains.sql` (also
+`scripts/remove-payments.sql`) drops it and recreates payment-free
+`master_provision_company`.
 
 ---
 
@@ -420,5 +465,4 @@ See [BILLING.md](./BILLING.md).
 - [BACKEND.md](./BACKEND.md) — schema, RPCs, RLS
 - [FRONTEND.md](./FRONTEND.md) — routes, tenancy UI
 - [SECURITY.md](./SECURITY.md) — security checklist
-- [BILLING.md](./BILLING.md) — manual payments
 - [.env.example](./.env.example) — variable names

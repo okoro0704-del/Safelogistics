@@ -8,7 +8,6 @@ import { CompanyFilters } from "@/components/master-admin/company-filters";
 import { ErrorState } from "@/components/common/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatMoneyCents } from "@/lib/payments/constants";
 import { listCompanies } from "@/lib/master-admin/queries";
 import { formatDate } from "@/lib/format";
 import type { CompanyStatus } from "@/lib/types/database";
@@ -116,8 +115,8 @@ export default async function MasterCompaniesPage({
                 <tr>
                   <th className="px-4 py-3 font-medium">Company</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Last payment</th>
-                  <th className="px-4 py-3 font-medium">Total paid</th>
+                  <th className="px-4 py-3 font-medium">Users</th>
+                  <th className="px-4 py-3 font-medium">Deliveries</th>
                   <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3 font-medium">
                     <span className="sr-only">Actions</span>
@@ -151,39 +150,21 @@ export default async function MasterCompaniesPage({
                       </Badge>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                      {company.last_payment_cents != null
-                        ? formatMoneyCents(
-                            company.last_payment_cents,
-                            company.last_payment_currency ?? "USD",
-                          )
-                        : "—"}
+                      {company.admin_count} admins · {company.customer_count}{" "}
+                      customers
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                      {company.total_paid_cents > 0
-                        ? formatMoneyCents(
-                            company.total_paid_cents,
-                            company.last_payment_currency ?? "USD",
-                          )
-                        : "—"}
+                      {company.delivery_count}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(company.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link
-                            href={`/master-admin/companies/${company.id}/payments`}
-                          >
-                            Payments
-                          </Link>
-                        </Button>
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/master-admin/companies/${company.id}`}>
-                            View
-                          </Link>
-                        </Button>
-                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/master-admin/companies/${company.id}`}>
+                          View
+                        </Link>
+                      </Button>
                     </td>
                   </tr>
                 ))}

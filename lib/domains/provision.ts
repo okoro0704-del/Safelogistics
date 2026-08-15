@@ -8,7 +8,10 @@ import { DnsProviderError } from "@/lib/domains/providers/dns/types";
 import { createHostingProvider, getConfiguredHostingProviderId } from "@/lib/domains/providers/hosting";
 import { HostingProviderError } from "@/lib/domains/providers/hosting/types";
 import {
+  getTenantSubdomainBase,
   isLocalDevHostname,
+  isManagedTenantSubdomain,
+  normalizeHostname,
   txtRecordFqdn,
   txtRecordName,
   txtRecordValue,
@@ -87,6 +90,35 @@ export async function provisionCompanyDomain(domain: CompanyDomain): Promise<{
   const hostingProviderId = getConfiguredHostingProviderId();
   const target = getCustomDomainTarget();
   const hostname = domain.normalized_domain;
+  const tenantBase = getTenantSubdomainBase();
+  const normalizedHost = normalizeHostname(hostname) ?? hostname;
+
+  // Wildcard tenant hosts are served by the platform site — never register
+  // per-tenant Netlify/DNS records for *.apps.webfinance.app.
+  if (
+    isManagedTenantSubdomain(normalizedHost) ||
+    (tenantBase &&
+      (normalizedHost === tenantBase ||
+        normalizedHost.endsWith(`.${tenantBase}`)))
+  ) {
+    return {
+      domainPatch: {
+        status: "active",
+        dns_provider: "platform",
+        hosting_provider: "platform",
+        dns_status: "configured",
+        hosting_status: "ready",
+        ssl_status: "ready",
+        last_error: null,
+        dns_target_record_id: "managed-subdomain",
+        dns_txt_record_id: "managed-subdomain",
+        hosting_domain_id: `managed-${normalizedHost}`,
+      },
+      message:
+        "Managed platform subdomain is already covered by the wildcard DNS and certificate. No per-tenant registrar or hosting setup is required.",
+      manualFallback: false,
+    };
+  }
 
   // Localhost shortcut — no real infrastructure
   if (isLocalDevHostname(hostname) && process.env.NODE_ENV !== "production") {

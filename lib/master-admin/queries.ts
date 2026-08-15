@@ -17,9 +17,6 @@ export type CompanyListItem = Company & {
   customer_count: number;
   delivery_count: number;
   active_delivery_count: number;
-  last_payment_cents: number | null;
-  last_payment_currency: string | null;
-  total_paid_cents: number;
 };
 
 export async function getPlatformStats(): Promise<PlatformStats> {
@@ -73,18 +70,12 @@ export async function listCompanies(options?: {
 
   const ids = rows.map((c) => c.id);
 
-  const [profilesRes, deliveriesRes, paymentsRes] = await Promise.all([
+  const [profilesRes, deliveriesRes] = await Promise.all([
     supabase.from("profiles").select("company_id, role").in("company_id", ids),
     supabase
       .from("deliveries")
       .select("company_id, status")
       .in("company_id", ids),
-    supabase
-      .from("payments")
-      .select("company_id, amount_cents, currency, status, payment_date, created_at")
-      .in("company_id", ids)
-      .eq("status", "recorded")
-      .order("payment_date", { ascending: false }),
   ]);
 
   const profileRows =
@@ -93,17 +84,6 @@ export async function listCompanies(options?: {
   const deliveryRows =
     (deliveriesRes.data as Array<{ company_id: string; status: string }> | null) ??
     [];
-  type PayRow = {
-    company_id: string;
-    amount_cents: number;
-    currency: string;
-    status: string;
-  };
-  // Payments table may be missing if migrations were not fully applied — do not crash hub.
-  const payRows =
-    paymentsRes.error
-      ? []
-      : ((paymentsRes.data as PayRow[] | null) ?? []);
 
   return rows.map((company) => {
     const companyProfiles = profileRows.filter(
@@ -112,8 +92,6 @@ export async function listCompanies(options?: {
     const companyDeliveries = deliveryRows.filter(
       (d) => d.company_id === company.id,
     );
-    const companyPays = payRows.filter((p) => p.company_id === company.id);
-    const last = companyPays[0] ?? null;
     return {
       ...company,
       admin_count: companyProfiles.filter((p) => p.role === "admin").length,
@@ -123,9 +101,6 @@ export async function listCompanies(options?: {
       active_delivery_count: companyDeliveries.filter((d) =>
         ["pending", "in_transit", "at_stop", "delayed"].includes(d.status),
       ).length,
-      last_payment_cents: last?.amount_cents ?? null,
-      last_payment_currency: last?.currency ?? null,
-      total_paid_cents: companyPays.reduce((s, p) => s + p.amount_cents, 0),
     };
   });
 }

@@ -14,13 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  formatMoneyCents,
-} from "@/lib/payments/constants";
-import {
-  getCompanyPaymentTotals,
-} from "@/lib/payments/server";
 import { getCompanyBranding } from "@/lib/branding/server";
+import { buildTenantDeliverableUrls } from "@/lib/domains/tenant-urls";
 import {
   getCompanyDetail,
   getCompanySettings,
@@ -37,11 +32,11 @@ export default async function CompanyDetailPage({
   if (!detail) notFound();
 
   const { company, admins } = detail;
-  const [branding, settings, paymentTotals] = await Promise.all([
+  const [branding, settings] = await Promise.all([
     getCompanyBranding(id),
     getCompanySettings(id),
-    getCompanyPaymentTotals(id),
   ]);
+  const tenantUrls = buildTenantDeliverableUrls(company.slug);
 
   return (
     <div className="space-y-6">
@@ -59,8 +54,8 @@ export default async function CompanyDetailPage({
           <div className="flex flex-wrap gap-2">
             {company.status === "active" ? (
               <Button asChild variant="secondary">
-                <Link href={`/t/${company.slug}`} target="_blank">
-                  Open preview
+                <Link href={tenantUrls.previewUrl} target="_blank">
+                  Open app
                 </Link>
               </Button>
             ) : null}
@@ -82,11 +77,6 @@ export default async function CompanyDetailPage({
             <Button asChild variant="outline">
               <Link href={`/master-admin/companies/${company.id}/email`}>
                 Email
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/master-admin/companies/${company.id}/payments`}>
-                Payments
               </Link>
             </Button>
             <CompanyStatusControls
@@ -120,10 +110,6 @@ export default async function CompanyDetailPage({
             href: `/master-admin/companies/${company.id}/email`,
             label: "Email",
           },
-          {
-            href: `/master-admin/companies/${company.id}/payments`,
-            label: "Payments",
-          },
           { href: `#admins`, label: "Admins" },
         ].map((item) => (
           <Link
@@ -156,50 +142,23 @@ export default async function CompanyDetailPage({
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">Payment summary</CardTitle>
-            <CardDescription>
-              Offline payments recorded by the Master Admin.
-            </CardDescription>
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/master-admin/companies/${company.id}/payments`}>
-              Payment history
-            </Link>
-          </Button>
+        <CardHeader>
+          <CardTitle className="text-base">Tenant URL</CardTitle>
+          <CardDescription>
+            {tenantUrls.usesManagedSubdomain
+              ? "Managed subdomain for this app."
+              : "Path preview until NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE is configured."}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Last payment
-            </p>
-            <p className="mt-1 font-medium">
-              {paymentTotals.last_payment
-                ? formatMoneyCents(
-                    paymentTotals.last_payment.amount_cents,
-                    paymentTotals.last_payment.currency,
-                  )
-                : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Total payments
-            </p>
-            <p className="mt-1 font-medium">{paymentTotals.count}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Total amount received
-            </p>
-            <p className="mt-1 font-medium">
-              {formatMoneyCents(
-                paymentTotals.total_cents,
-                paymentTotals.currency,
-              )}
-            </p>
-          </div>
+        <CardContent className="text-sm">
+          <a
+            className="font-medium text-primary underline-offset-2 hover:underline break-all"
+            href={tenantUrls.previewUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {tenantUrls.previewUrl}
+          </a>
         </CardContent>
       </Card>
 

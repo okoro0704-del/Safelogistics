@@ -15,7 +15,7 @@ export type DnsRecord = {
 
 export type DnsRecordInput = {
   type: DnsRecordType;
-  /** Relative name (e.g. _routeledger or @) or FQDN */
+  /** Relative name (e.g. _parcelmovement or @) or FQDN */
   name: string;
   content: string;
   ttl?: number;

@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Use a normal email (not *.local). Example: master@safelogistics.app",
+            "Use a normal email (not *.local). Example: master@parcelmovement.app",
         },
         { status: 400 },
       );

@@ -1,6 +1,6 @@
 # Security model & production checklist
 
-RouteLedger is a multi-tenant white-label delivery platform. This document is the source of truth for the security model after Prompt 13 hardening.
+Parcel Movement is a multi-tenant white-label delivery platform. This document is the source of truth for the security model.
 
 Related docs: [README.md](./README.md) · [BACKEND.md](./BACKEND.md) · [FRONTEND.md](./FRONTEND.md)
 
@@ -14,13 +14,16 @@ Related docs: [README.md](./README.md) · [BACKEND.md](./BACKEND.md) · [FRONTEN
 Host / nextUrl.hostname
   → normalize (lowercase, strip port/trailing dot)
   → company_domains where status = active
+     OR {slug}.{TENANT_SUBDOMAIN_BASE} via company slug
+     OR platform path preview /t/{slug}
   → company (must be active for portals)
 ```
 
 - Middleware sets `x-tenant-*` request headers **after clearing any client-spoofed values**.
 - Hostname is a **routing hint**, not authorization. RLS + authenticated `company_id` still bind writes.
 - Only **active** domains resolve. `pending` / `provisioning` / `verifying` / `failed` / `disabled` do not.
-- Custom domains block `/master-admin` and `/api/master-admin/*`.
+- Custom domains and managed tenant subdomains block `/master-admin` and `/api/master-admin/*`.
+- Platform host (`NEXT_PUBLIC_PLATFORM_HOSTS`, e.g. `pm.webfinance.app`) is the only Master Admin surface.
 
 ### Host / proxy expectations (production)
 
@@ -133,4 +136,4 @@ Rotate DNS/hosting tokens in the provider console, update env, redeploy. Prefer 
 
 ## Health
 
-`GET /api/health` — liveness only (`{ ok: true, service: "routeledger" }`). No DB credentials or diagnostics.
+`GET /api/health` — liveness only (`{ ok: true, service: "parcel-movement" }`). No DB credentials or diagnostics.

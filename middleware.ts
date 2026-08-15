@@ -6,7 +6,10 @@ import {
   TENANT_COMPANY_SLUG_HEADER,
   TENANT_DOMAIN_HEADER,
 } from "@/lib/domains/headers";
-import { isPlatformHostname } from "@/lib/domains/normalize";
+import {
+  isPlatformHostname,
+  parseTenantSubdomainHostname,
+} from "@/lib/domains/normalize";
 import {
   isPlatformExclusivePath,
   parseTenantPreviewPath,
@@ -124,7 +127,22 @@ export async function middleware(request: NextRequest) {
     let shouldRewritePreview = false;
     let clearPreview = false;
 
-    // Path preview only on platform hosts (not custom domains).
+    // Automatic tenant hosts: {slug}.apps.webfinance.app
+    if (!tenant) {
+      const subdomainSlug = parseTenantSubdomainHostname(hostname);
+      if (subdomainSlug) {
+        const subdomainTenant = await resolveCompanyFromSlug(
+          subdomainSlug,
+          supabase,
+        );
+        if (!subdomainTenant) {
+          return new NextResponse("App not found.", { status: 404 });
+        }
+        tenant = subdomainTenant;
+      }
+    }
+
+    // Path preview only on platform hosts (not custom / managed subdomains).
     if (!tenant && isPlatformHostname(hostname)) {
       const parsed = parseTenantPreviewPath(pathname);
       if (parsed) {

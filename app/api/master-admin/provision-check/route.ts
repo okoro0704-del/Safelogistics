@@ -27,7 +27,6 @@ export async function GET() {
       p_admin_user_id: "00000000-0000-0000-0000-000000000000",
       p_admin_full_name: "Probe",
       p_admin_email: "probe@example.com",
-      p_payment_received: false,
     } as never,
   );
 
@@ -57,7 +56,7 @@ export async function GET() {
       hint: probeError?.hint ?? null,
     },
     nextStep: ambiguous || missing
-      ? "Run scripts/fix-provision-overloads.sql (full file) in Supabase SQL Editor, then retry Create App."
+      ? "Run the latest remove-payments migration (or scripts/fix-provision-overloads.sql) in Supabase SQL Editor, then retry Create App."
       : functionOk
         ? "Provision RPC looks reachable. Retry Create App; if it fails, the new error text should be specific."
         : "Unexpected provision probe response. Paste provisionProbe.message when asking for help.",

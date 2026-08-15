@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { normalizeHostname, type CompanyDomain } from "@/lib/domains/normalize";
-import { formatMoneyCents } from "@/lib/payments/constants";
 
 type SearchResult = {
   domain: string;
@@ -26,6 +25,14 @@ type SearchResult = {
   currency?: string;
   error?: string | null;
 };
+
+function formatRegistrarPrice(cents: number | null | undefined, currency = "USD") {
+  if (cents == null) return "Available";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+  }).format(cents / 100);
+}
 
 export function BuyDomainPanel({
   companyId,
@@ -39,7 +46,6 @@ export function BuyDomainPanel({
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [years, setYears] = useState(1);
-  const [recordPayment, setRecordPayment] = useState(true);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<SearchResult | null>(null);
@@ -88,8 +94,6 @@ export function BuyDomainPanel({
           body: JSON.stringify({
             domain: selected.domain,
             years,
-            record_payment: recordPayment,
-            payment_method: "other",
           }),
         },
       );
@@ -119,12 +123,15 @@ export function BuyDomainPanel({
         <CardTitle>Buy domain</CardTitle>
         <CardDescription>
           Search and register via Namecheap on the platform account, then attach
-          the hostname to Netlify automatically. Tenant payment is recorded
-          offline when enabled.
+          the hostname to Netlify automatically. Prefer the free managed
+          subdomain ({`{slug}.apps.webfinance.app`}) when available.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={onSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <form
+          onSubmit={onSearch}
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+        >
           <div className="flex-1 space-y-2">
             <Label htmlFor="buy-domain">Domain</Label>
             <Input
@@ -156,9 +163,7 @@ export function BuyDomainPanel({
                   <p className="font-mono font-medium">{row.domain}</p>
                   <p className="text-muted-foreground">
                     {row.available
-                      ? row.priceCents != null
-                        ? formatMoneyCents(row.priceCents, row.currency ?? "USD")
-                        : "Available"
+                      ? formatRegistrarPrice(row.priceCents, row.currency ?? "USD")
                       : row.error || "Unavailable"}
                     {row.premium ? " · Premium" : ""}
                   </p>
@@ -181,27 +186,16 @@ export function BuyDomainPanel({
 
         {selected?.available ? (
           <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="buy-years">Years</Label>
-                <Input
-                  id="buy-years"
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={years}
-                  onChange={(e) => setYears(Number(e.target.value) || 1)}
-                />
-              </div>
-              <label className="flex items-end gap-2 pb-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={recordPayment}
-                  onChange={(e) => setRecordPayment(e.target.checked)}
-                  className="size-4"
-                />
-                Record offline payment for registration cost
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="buy-years">Years</Label>
+              <Input
+                id="buy-years"
+                type="number"
+                min={1}
+                max={10}
+                value={years}
+                onChange={(e) => setYears(Number(e.target.value) || 1)}
+              />
             </div>
             <Button type="button" onClick={onPurchase} disabled={pending}>
               {pending ? (

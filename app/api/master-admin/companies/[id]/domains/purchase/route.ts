@@ -5,7 +5,6 @@ import { canAttemptDomainAction, recordDomainActionAttempt } from "@/lib/domains
 import { RegistrarProviderError } from "@/lib/domains/providers/registrar";
 import { friendlyErrorMessage } from "@/lib/format";
 import { requireMasterAdminApi } from "@/lib/master-admin/server";
-import type { ManualPaymentMethod } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +22,6 @@ export async function POST(
     const body = (await request.json()) as {
       domain?: string;
       years?: number;
-      record_payment?: boolean;
-      payment_method?: ManualPaymentMethod;
-      payment_reference?: string;
-      payment_notes?: string;
       contact?: Record<string, string>;
     };
 
@@ -51,10 +46,6 @@ export async function POST(
       companyId,
       domain,
       years: body.years,
-      recordPayment: Boolean(body.record_payment),
-      paymentMethod: body.payment_method ?? "other",
-      paymentReference: body.payment_reference ?? null,
-      paymentNotes: body.payment_notes ?? null,
       contact: body.contact
         ? {
             firstName: body.contact.firstName,

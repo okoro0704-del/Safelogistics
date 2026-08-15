@@ -584,46 +584,5 @@ BEGIN
 END;
 $$;
 
--- Manual payment demo records (no plans/subscriptions)
-DO $$
-DECLARE
-  v_swift UUID := 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  v_prime UUID := 'ffffffff-ffff-ffff-ffff-ffffffffffff';
-  v_master UUID := 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
-  v_now TIMESTAMPTZ := timezone('utc', now());
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'payments'
-  ) THEN
-    RETURN;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM public.payments WHERE company_id = v_swift AND reference = 'DEMO-SWIFT-001'
-  ) THEN
-    INSERT INTO public.payments (
-      company_id, amount_cents, currency, payment_method, payment_date,
-      reference, notes, status, recorded_by
-    ) VALUES (
-      v_swift, 7900, 'USD', 'bank_transfer', (v_now - interval '5 days')::date,
-      'DEMO-SWIFT-001', 'Demo seed payment — not a real transfer',
-      'recorded', v_master
-    );
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM public.payments WHERE company_id = v_prime AND reference = 'DEMO-PRIME-001'
-  ) THEN
-    INSERT INTO public.payments (
-      company_id, amount_cents, currency, payment_method, payment_date,
-      reference, notes, status, recorded_by
-    ) VALUES (
-      v_prime, 199000, 'USD', 'bank_transfer', (v_now - interval '30 days')::date,
-      'DEMO-PRIME-001', 'Demo seed payment — not a real transfer',
-      'recorded', v_master
-    );
-  END IF;
-END;
-$$;
+-- Payments removed — no demo payment records.
 

@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS public.domain_orders (
   currency TEXT NOT NULL DEFAULT 'USD',
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'purchased', 'failed', 'cancelled')),
-  payment_id UUID REFERENCES public.payments(id) ON DELETE SET NULL,
   contact_snapshot JSONB,
   last_error TEXT,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -301,7 +300,6 @@ CREATE OR REPLACE FUNCTION public.master_complete_domain_order(
   p_status TEXT,
   p_namecheap_order_id TEXT DEFAULT NULL,
   p_company_domain_id UUID DEFAULT NULL,
-  p_payment_id UUID DEFAULT NULL,
   p_last_error TEXT DEFAULT NULL,
   p_expires_at TIMESTAMPTZ DEFAULT NULL
 )
@@ -326,7 +324,6 @@ BEGIN
     status = p_status,
     namecheap_order_id = COALESCE(p_namecheap_order_id, namecheap_order_id),
     company_domain_id = COALESCE(p_company_domain_id, company_domain_id),
-    payment_id = COALESCE(p_payment_id, payment_id),
     last_error = CASE
       WHEN p_status = 'purchased' THEN NULL
       ELSE COALESCE(p_last_error, last_error)

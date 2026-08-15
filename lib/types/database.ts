@@ -23,31 +23,6 @@ export type LocationEventType =
 
 export type CompanyStatus = "active" | "suspended";
 
-export type ManualPaymentMethod =
-  | "bank_transfer"
-  | "cash"
-  | "mobile_money"
-  | "other";
-
-export type ManualPaymentStatus = "recorded" | "voided";
-
-export type Payment = {
-  id: string;
-  company_id: string;
-  amount_cents: number;
-  currency: string;
-  payment_method: ManualPaymentMethod;
-  payment_date: string;
-  reference: string | null;
-  notes: string | null;
-  status: ManualPaymentStatus;
-  recorded_by: string | null;
-  voided_at: string | null;
-  voided_by: string | null;
-  void_reason: string | null;
-  created_at: string;
-};
-
 export type DomainOrder = {
   id: string;
   company_id: string;
@@ -59,7 +34,6 @@ export type DomainOrder = {
   cost_cents: number | null;
   currency: string;
   status: "pending" | "purchased" | "failed" | "cancelled";
-  payment_id: string | null;
   contact_snapshot: Record<string, unknown> | null;
   last_error: string | null;
   created_by: string | null;
@@ -404,16 +378,6 @@ export type Database = {
         Update: Partial<CompanyDomain>;
         Relationships: [];
       };
-      payments: {
-        Row: Payment;
-        Insert: Partial<Payment> & {
-          company_id: string;
-          amount_cents: number;
-          payment_method: ManualPaymentMethod;
-        };
-        Update: Partial<Payment>;
-        Relationships: [];
-      };
       domain_orders: {
         Row: DomainOrder;
         Insert: Partial<DomainOrder> & {
@@ -656,54 +620,12 @@ export type Database = {
           p_secondary_color?: string | null;
           p_accent_color?: string | null;
           p_tagline?: string | null;
-          p_payment_received?: boolean;
-          p_payment_amount_cents?: number | null;
-          p_payment_currency?: string | null;
-          p_payment_method?: ManualPaymentMethod | null;
-          p_payment_date?: string | null;
-          p_payment_reference?: string | null;
-          p_payment_notes?: string | null;
         };
         Returns: {
           company: Company;
           admin: Profile;
           settings: CompanySettings;
           branding: CompanyBranding | null;
-          payment: Payment | null;
-        };
-      };
-      master_record_payment: {
-        Args: {
-          p_company_id: string;
-          p_amount_cents: number;
-          p_currency: string;
-          p_payment_method: ManualPaymentMethod;
-          p_payment_date?: string | null;
-          p_reference?: string | null;
-          p_notes?: string | null;
-        };
-        Returns: Payment;
-      };
-      master_void_payment: {
-        Args: { p_payment_id: string; p_reason?: string | null };
-        Returns: Payment;
-      };
-      master_payment_stats: {
-        Args: Record<string, never>;
-        Returns: {
-          total_payments: number;
-          total_received_cents: number;
-          received_month_cents: number;
-          voided_payments: number;
-        };
-      };
-      master_billing_stats: {
-        Args: Record<string, never>;
-        Returns: {
-          total_payments: number;
-          total_received_cents: number;
-          received_month_cents: number;
-          voided_payments: number;
         };
       };
       master_rollback_company_provision: {
@@ -751,7 +673,6 @@ export type Database = {
           p_status: string;
           p_namecheap_order_id?: string | null;
           p_company_domain_id?: string | null;
-          p_payment_id?: string | null;
           p_last_error?: string | null;
           p_expires_at?: string | null;
         };

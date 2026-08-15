@@ -2,7 +2,7 @@
   "name": "delivery-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Delivery tracking platform - Supabase backend + Next.js frontend",
+  "description": "Parcel Movement — multi-tenant white-label delivery platform (Next.js + Supabase)",
   "engines": {
     "node": ">=20"
   },

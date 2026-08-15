@@ -64,30 +64,9 @@ type ProvisionFields = {
   secondary_color: string | null;
   accent_color: string | null;
   tagline: string | null;
-  payment_received: boolean;
-  payment_amount_cents: number | null;
-  payment_currency: string | null;
-  payment_method: "bank_transfer" | "cash" | "mobile_money" | "other" | null;
-  payment_date: string | null;
-  payment_reference: string | null;
-  payment_notes: string | null;
   logoFile: File | null;
   faviconFile: File | null;
 };
-
-function parsePaymentMethod(
-  value: string,
-): ProvisionFields["payment_method"] {
-  if (
-    value === "bank_transfer" ||
-    value === "cash" ||
-    value === "mobile_money" ||
-    value === "other"
-  ) {
-    return value;
-  }
-  return null;
-}
 
 function normalizeWebsiteUrl(value: string | null): string | null {
   if (!value) return null;
@@ -107,7 +86,6 @@ function buildProvisionRpcArgs(
     p_admin_user_id: adminUserId,
     p_admin_full_name: fields.admin_full_name,
     p_admin_email: fields.admin_email,
-    p_payment_received: fields.payment_received,
   };
 
   if (fields.admin_phone) args.p_admin_phone = fields.admin_phone;
@@ -135,17 +113,6 @@ function buildProvisionRpcArgs(
     args.p_accent_color = normalizeHexColor(fields.accent_color);
   }
   if (fields.tagline) args.p_tagline = fields.tagline;
-
-  if (fields.payment_received) {
-    args.p_payment_amount_cents = fields.payment_amount_cents;
-    args.p_payment_currency = fields.payment_currency ?? "USD";
-    args.p_payment_method = fields.payment_method;
-    if (fields.payment_date) args.p_payment_date = fields.payment_date;
-    if (fields.payment_reference) {
-      args.p_payment_reference = fields.payment_reference;
-    }
-    if (fields.payment_notes) args.p_payment_notes = fields.payment_notes;
-  }
 
   return args;
 }
@@ -197,25 +164,6 @@ async function parseProvisionBody(request: Request): Promise<ProvisionFields> {
         String(form.get("secondary_color") ?? "").trim() || null,
       accent_color: String(form.get("accent_color") ?? "").trim() || null,
       tagline: String(form.get("tagline") ?? "").trim() || null,
-      payment_received:
-        String(form.get("payment_received") ?? "") === "true" ||
-        String(form.get("payment_received") ?? "") === "1",
-      payment_amount_cents: (() => {
-        const raw = String(form.get("payment_amount_cents") ?? "").trim();
-        if (!raw) return null;
-        const n = Number(raw);
-        return Number.isInteger(n) ? n : null;
-      })(),
-      payment_currency:
-        String(form.get("payment_currency") ?? "").trim().toUpperCase() ||
-        null,
-      payment_method: parsePaymentMethod(
-        String(form.get("payment_method") ?? ""),
-      ),
-      payment_date: String(form.get("payment_date") ?? "").trim() || null,
-      payment_reference:
-        String(form.get("payment_reference") ?? "").trim() || null,
-      payment_notes: String(form.get("payment_notes") ?? "").trim() || null,
       logoFile: logo instanceof File && logo.size > 0 ? logo : null,
       faviconFile:
         favicon instanceof File && favicon.size > 0 ? favicon : null,
@@ -245,17 +193,6 @@ async function parseProvisionBody(request: Request): Promise<ProvisionFields> {
     secondary_color: String(body.secondary_color ?? "").trim() || null,
     accent_color: String(body.accent_color ?? "").trim() || null,
     tagline: String(body.tagline ?? "").trim() || null,
-    payment_received: Boolean(body.payment_received),
-    payment_amount_cents:
-      body.payment_amount_cents != null
-        ? Number(body.payment_amount_cents)
-        : null,
-    payment_currency:
-      String(body.payment_currency ?? "").trim().toUpperCase() || null,
-    payment_method: parsePaymentMethod(String(body.payment_method ?? "")),
-    payment_date: String(body.payment_date ?? "").trim() || null,
-    payment_reference: String(body.payment_reference ?? "").trim() || null,
-    payment_notes: String(body.payment_notes ?? "").trim() || null,
     logoFile: null,
     faviconFile: null,
   };
@@ -297,18 +234,6 @@ function validateProvision(fields: ProvisionFields): string | null {
   ] as const) {
     if (value && !isValidHexColor(value)) {
       return `${label} must be a hex value like #0f766e.`;
-    }
-  }
-  if (fields.payment_received) {
-    if (
-      fields.payment_amount_cents == null ||
-      !Number.isInteger(fields.payment_amount_cents) ||
-      fields.payment_amount_cents < 0
-    ) {
-      return "Payment amount must be an integer in cents.";
-    }
-    if (!fields.payment_method) {
-      return "Payment method is required when payment is received.";
     }
   }
   return null;
@@ -452,7 +377,6 @@ export async function POST(request: Request) {
             admin?: unknown;
             settings?: unknown;
             branding?: unknown;
-            payment?: unknown;
           })
         : null;
     const company = provisioned?.company ?? null;
@@ -575,7 +499,6 @@ export async function POST(request: Request) {
       admin: provisioned?.admin ?? null,
       settings: provisioned?.settings ?? null,
       branding: provisioned?.branding ?? null,
-      payment: provisioned?.payment ?? null,
       temporary_password: password,
       admin_email: fields.admin_email,
       company_slug: fields.company_slug,

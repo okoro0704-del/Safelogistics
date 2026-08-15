@@ -96,6 +96,11 @@ export function isValidHostname(hostname: string | null | undefined): boolean {
 }
 
 export function txtRecordName(): string {
+  return "_parcelmovement";
+}
+
+/** Legacy TXT host used by older tenants. */
+export function legacyTxtRecordName(): string {
   return "_routeledger";
 }
 
@@ -104,7 +109,52 @@ export function txtRecordFqdn(normalizedDomain: string): string {
 }
 
 export function txtRecordValue(token: string): string {
+  return `parcelmovement-verification=${token}`;
+}
+
+export function legacyTxtRecordValue(token: string): string {
   return `routeledger-verification=${token}`;
+}
+
+/** Apex for automatic tenant hosts, e.g. apps.webfinance.app */
+export function getTenantSubdomainBase(): string | null {
+  const raw = process.env.NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE?.trim().toLowerCase();
+  if (!raw) return null;
+  return normalizeHostname(raw);
+}
+
+export function tenantHostnameForSlug(slug: string): string | null {
+  const base = getTenantSubdomainBase();
+  const normalizedSlug = slug.trim().toLowerCase();
+  if (!base || !normalizedSlug) return null;
+  return `${normalizedSlug}.${base}`;
+}
+
+export function tenantOriginForSlug(slug: string): string | null {
+  const host = tenantHostnameForSlug(slug);
+  if (!host) return null;
+  return `https://${host}`;
+}
+
+/** Parse {slug}.{TENANT_SUBDOMAIN_BASE} → slug. */
+export function parseTenantSubdomainHostname(
+  hostname: string | null | undefined,
+): string | null {
+  const host = normalizeHostname(hostname);
+  const base = getTenantSubdomainBase();
+  if (!host || !base) return null;
+  if (host === base) return null;
+  if (!host.endsWith(`.${base}`)) return null;
+  const slug = host.slice(0, -(base.length + 1));
+  if (!slug || slug.includes(".")) return null;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+  return slug;
+}
+
+export function isManagedTenantSubdomain(
+  hostname: string | null | undefined,
+): boolean {
+  return Boolean(parseTenantSubdomainHostname(hostname));
 }
 
 export function generateVerificationToken(): string {

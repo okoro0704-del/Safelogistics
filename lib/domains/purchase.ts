@@ -24,10 +24,6 @@ export type PurchaseDomainInput = {
   companyId: string;
   domain: string;
   years?: number;
-  recordPayment?: boolean;
-  paymentMethod?: string;
-  paymentReference?: string | null;
-  paymentNotes?: string | null;
   contact?: Partial<RegistrarContact> | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
@@ -74,7 +70,15 @@ function buildWebDnsHosts(
     const name = h.hostName.toLowerCase();
     const type = h.recordType.toUpperCase();
     if (type === "TXT" && (name === txtRecordName() || name === `@`)) {
-      if (h.address.includes("routeledger-verify=")) return false;
+      if (
+        h.address.includes("parcelmovement-verification=") ||
+        h.address.includes("parcelmovement-verification=") ||
+        h.address.includes("parcelmovement-verify=") ||
+        h.address.includes("routeledger-verification=") ||
+        h.address.includes("routeledger-verify=")
+      ) {
+        return false;
+      }
     }
     if (target && type === "CNAME") {
       if (name === "@" || name === hostname.split(".")[0]) return false;
@@ -256,30 +260,11 @@ export async function purchaseCompanyDomain(input: PurchaseDomainInput) {
       // non-fatal
     }
 
-    let paymentId: string | null = null;
-    if (input.recordPayment && pricing.priceCents > 0) {
-      const { data: payment } = await input.supabase.rpc("master_record_payment", {
-        p_company_id: input.companyId,
-        p_amount_cents: pricing.priceCents,
-        p_currency: pricing.currency,
-        p_payment_method: input.paymentMethod ?? "other",
-        p_payment_date: new Date().toISOString().slice(0, 10),
-        p_reference:
-          input.paymentReference ??
-          `domain:${normalized}:${registered.orderId ?? orderId}`,
-        p_notes:
-          input.paymentNotes ??
-          `Domain registration ${normalized} (${years} year${years === 1 ? "" : "s"})`,
-      });
-      paymentId = (payment as { id?: string } | null)?.id ?? null;
-    }
-
     await input.supabase.rpc("master_complete_domain_order", {
       p_order_id: orderId,
       p_status: "purchased",
       p_namecheap_order_id: registered.orderId,
       p_company_domain_id: companyDomain.id,
-      p_payment_id: paymentId,
       p_expires_at: registered.expiresAt,
     });
 
@@ -297,7 +282,6 @@ export async function purchaseCompanyDomain(input: PurchaseDomainInput) {
         status: "purchased",
         namecheap_order_id: registered.orderId,
         company_domain_id: companyDomain.id,
-        payment_id: paymentId,
       },
       domain: (finalDomain as CompanyDomain) ?? companyDomain,
       message:

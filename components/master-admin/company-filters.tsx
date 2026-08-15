@@ -36,7 +36,6 @@ export function CompanyFilters({
     else params.delete("q");
     if (statusValue && statusValue !== "all") params.set("status", statusValue);
     else params.delete("status");
-    params.delete("billing");
     router.push(`/master-admin/companies?${params.toString()}`);
   }
 

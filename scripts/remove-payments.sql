@@ -1,8 +1,3 @@
--- =============================================================================
--- Payment-free master_provision_company + remove payments
--- Prefer applying migration 20260815230000_remove_payments_add_subdomains.sql
--- via `npx supabase db push`. This script is for manual Supabase SQL Editor use.
--- =============================================================================
 -- Remove all payment / billing features and provision without payments.
 -- Also drop domain_orders.payment_id linkage.
 

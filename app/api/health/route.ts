@@ -26,7 +26,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok: true,
-      service: "safelogistics",
+      service: "parcel-movement",
       supabaseHost,
       supabaseUrlNormalized,
       looksLocal,
