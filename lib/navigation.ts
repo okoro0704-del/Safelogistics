@@ -8,5 +8,6 @@ export const adminNav = [
 export const customerNav = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/deliveries", label: "My Deliveries" },
+  { href: "/dashboard/mail", label: "Mailbox" },
   { href: "/dashboard/profile", label: "Profile" },
 ] as const;

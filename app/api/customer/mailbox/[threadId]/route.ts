@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   isMailboxFolder,
-  requireCompanyAdmin,
+  requireCompanyCustomer,
 } from "@/lib/email/mailbox";
 import { friendlyErrorMessage } from "@/lib/format";
 
@@ -13,7 +13,7 @@ export async function GET(
   context: { params: Promise<{ threadId: string }> },
 ) {
   try {
-    const auth = await requireCompanyAdmin();
+    const auth = await requireCompanyCustomer();
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -24,20 +24,23 @@ export async function GET(
       .select("*")
       .eq("id", threadId)
       .eq("company_id", auth.companyId)
+      .eq("customer_id", auth.user.id)
       .maybeSingle();
 
     if (threadError || !thread) {
       return NextResponse.json({ error: "Thread not found." }, { status: 404 });
     }
 
-    // Opening a thread marks it read.
-    if (!(thread as { is_read?: boolean }).is_read) {
+    if (!(thread as { customer_is_read?: boolean }).customer_is_read) {
       await auth.supabase
         .from("email_threads")
-        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .update({
+          customer_is_read: true,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", threadId)
-        .eq("company_id", auth.companyId);
-      (thread as { is_read: boolean }).is_read = true;
+        .eq("customer_id", auth.user.id);
+      (thread as { customer_is_read: boolean }).customer_is_read = true;
     }
 
     const { data: messages, error } = await auth.supabase
@@ -68,7 +71,7 @@ export async function PATCH(
   context: { params: Promise<{ threadId: string }> },
 ) {
   try {
-    const auth = await requireCompanyAdmin();
+    const auth = await requireCompanyCustomer();
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -85,13 +88,10 @@ export async function PATCH(
       if (!isMailboxFolder(body.folder)) {
         return NextResponse.json({ error: "Invalid folder." }, { status: 400 });
       }
-      patch.folder = body.folder;
-      if (body.folder === "spam" || body.folder === "inbox") {
-        // no-op; folder move only
-      }
+      patch.customer_folder = body.folder;
     }
     if (typeof body.is_read === "boolean") {
-      patch.is_read = body.is_read;
+      patch.customer_is_read = body.is_read;
     }
 
     if (Object.keys(patch).length <= 1) {
@@ -105,6 +105,7 @@ export async function PATCH(
       .from("email_threads")
       .update(patch)
       .eq("id", threadId)
+      .eq("customer_id", auth.user.id)
       .eq("company_id", auth.companyId)
       .select("*")
       .maybeSingle();
@@ -114,7 +115,7 @@ export async function PATCH(
         {
           error: friendlyErrorMessage(
             error?.message,
-            "Unable to update thread. Run scripts/mailbox-folders.sql if folders are missing.",
+            "Unable to update thread.",
           ),
         },
         { status: error ? 400 : 404 },
@@ -135,7 +136,7 @@ export async function DELETE(
   context: { params: Promise<{ threadId: string }> },
 ) {
   try {
-    const auth = await requireCompanyAdmin();
+    const auth = await requireCompanyCustomer();
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -143,23 +144,22 @@ export async function DELETE(
 
     const { data: existing } = await auth.supabase
       .from("email_threads")
-      .select("id, folder")
+      .select("id, customer_folder")
       .eq("id", threadId)
-      .eq("company_id", auth.companyId)
+      .eq("customer_id", auth.user.id)
       .maybeSingle();
 
     if (!existing) {
       return NextResponse.json({ error: "Thread not found." }, { status: 404 });
     }
 
-    // Permanent delete only for drafts/spam; otherwise move to spam.
-    const folder = (existing as { folder: string }).folder;
+    const folder = (existing as { customer_folder: string }).customer_folder;
     if (folder === "drafts" || folder === "spam") {
       const { error } = await auth.supabase
         .from("email_threads")
         .delete()
         .eq("id", threadId)
-        .eq("company_id", auth.companyId);
+        .eq("customer_id", auth.user.id);
       if (error) {
         return NextResponse.json(
           { error: friendlyErrorMessage(error.message, "Unable to delete.") },
@@ -172,21 +172,18 @@ export async function DELETE(
     const { data: thread, error } = await auth.supabase
       .from("email_threads")
       .update({
-        folder: "spam",
+        customer_folder: "spam",
         updated_at: new Date().toISOString(),
       })
       .eq("id", threadId)
-      .eq("company_id", auth.companyId)
+      .eq("customer_id", auth.user.id)
       .select("*")
       .single();
 
     if (error || !thread) {
       return NextResponse.json(
         {
-          error: friendlyErrorMessage(
-            error?.message,
-            "Unable to move to spam.",
-          ),
+          error: friendlyErrorMessage(error?.message, "Unable to move to spam."),
         },
         { status: 400 },
       );

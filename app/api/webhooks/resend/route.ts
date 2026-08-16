@@ -138,11 +138,22 @@ export async function POST(request: Request) {
 
   const subject = data.subject?.trim() || "(no subject)";
 
-  const { data: existingThread } = await supabase
-    .from("email_threads")
+  const { data: customerProfile } = await supabase
+    .from("profiles")
     .select("id")
     .eq("company_id", companyId)
+    .eq("role", "customer")
+    .ilike("email", from)
+    .maybeSingle();
+  const customerId =
+    (customerProfile as { id?: string } | null)?.id ?? null;
+
+  const { data: existingThread } = await supabase
+    .from("email_threads")
+    .select("id, folder")
+    .eq("company_id", companyId)
     .eq("subject", subject)
+    .neq("folder", "drafts")
     .order("last_message_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -156,6 +167,11 @@ export async function POST(request: Request) {
         mailbox_id: mailboxId,
         subject,
         participants: [from, ...toList],
+        folder: "inbox",
+        is_read: false,
+        customer_id: customerId,
+        customer_folder: customerId ? "sent" : "inbox",
+        customer_is_read: true,
         last_message_at: new Date().toISOString(),
       })
       .select("id")
@@ -168,11 +184,22 @@ export async function POST(request: Request) {
     }
     threadId = (thread as { id: string }).id;
   } else {
+    const existingFolder = (existingThread as { folder?: string } | null)
+      ?.folder;
     await supabase
       .from("email_threads")
       .update({
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        is_read: false,
+        ...(existingFolder === "spam" ? {} : { folder: "inbox" }),
+        ...(customerId
+          ? {
+              customer_id: customerId,
+              customer_folder: "sent",
+              customer_is_read: true,
+            }
+          : {}),
       })
       .eq("id", threadId);
   }

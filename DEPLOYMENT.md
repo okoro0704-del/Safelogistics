@@ -450,6 +450,69 @@ Managed `*.apps.webfinance.app` hosts skip per-tenant Netlify domain registratio
 
 ---
 
+## Webfinance distributor provision API
+
+Server-to-server endpoint for the Webfinance master distributor control panel:
+
+```text
+POST https://pm.webfinance.app/api/v1/tenants/provision
+```
+
+### Netlify env
+
+```text
+TENANT_HMAC_SECRET=<shared-secret-with-webfinance>
+SUPABASE_SERVICE_ROLE_KEY=<service-role>
+NEXT_PUBLIC_TENANT_SUBDOMAIN_BASE=apps.webfinance.app
+NEXT_PUBLIC_SITE_URL=https://pm.webfinance.app
+```
+
+### Headers
+
+| Header | Value |
+|--------|--------|
+| `Content-Type` | `application/json` |
+| `X-Distributor-Signature` | HMAC-SHA256 hex of **raw body** using `TENANT_HMAC_SECRET` |
+| `X-Distributor-Timestamp` | Epoch milliseconds (must be within ~5 minutes) |
+| `X-Idempotency-Key` | Client UUID (same key + same body → replay; different body → 409) |
+
+### Body
+
+```json
+{
+  "client_id": "uuid",
+  "distributor_id": "uuid",
+  "product_sku": "PRODUCT_B",
+  "display_name": "Acme Ltd",
+  "slug": "acme",
+  "custom_domain": "acme.example.com",
+  "timestamp": "2026-08-16T21:00:00.000Z",
+  "admin_email": "admin@acme.example.com",
+  "admin_full_name": "Acme Admin"
+}
+```
+
+`admin_email` and `admin_full_name` are required so Auth can create the tenant administrator.
+
+### Success (200)
+
+```json
+{
+  "tenant_id": "ten_<company-uuid>",
+  "admin_email": "admin@acme.example.com",
+  "temporary_password": "Tmp-...",
+  "access_url": "https://acme.apps.webfinance.app/login"
+}
+```
+
+Idempotent replays return the same payload with `temporary_password: null`.
+
+### Database
+
+Apply `scripts/distributor-tenant-provision.sql` (or migration `20260816100000_distributor_tenant_provision.sql`) so `service_provision_company` and `distributor_provision_requests` exist.
+
+---
+
 ## Payments removed
 
 Parcel Movement does **not** include payment or billing features. Historical

@@ -66,12 +66,19 @@ export type CompanyMailbox = {
   updated_at: string;
 };
 
+export type EmailThreadFolder = "inbox" | "sent" | "drafts" | "spam";
+
 export type EmailThread = {
   id: string;
   company_id: string;
   mailbox_id: string | null;
   subject: string;
   participants: unknown;
+  folder: EmailThreadFolder;
+  is_read: boolean;
+  customer_id: string | null;
+  customer_folder: EmailThreadFolder;
+  customer_is_read: boolean;
   last_message_at: string;
   created_at: string;
   updated_at: string;
@@ -439,6 +446,40 @@ export type Database = {
         Update: Partial<EmailMessageAttachment>;
         Relationships: [];
       };
+      distributor_provision_requests: {
+        Row: {
+          idempotency_key: string;
+          client_id: string;
+          distributor_id: string;
+          product_sku: string;
+          request_hash: string;
+          company_id: string | null;
+          admin_email: string | null;
+          response_json: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          idempotency_key: string;
+          client_id: string;
+          distributor_id: string;
+          product_sku: string;
+          request_hash: string;
+          company_id?: string | null;
+          admin_email?: string | null;
+          response_json: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: Partial<{
+          client_id: string;
+          distributor_id: string;
+          product_sku: string;
+          request_hash: string;
+          company_id: string | null;
+          admin_email: string | null;
+          response_json: Record<string, unknown>;
+        }>;
+        Relationships: [];
+      };
       deliveries: {
         Row: Delivery;
         Insert: Partial<Delivery> & {
@@ -601,6 +642,34 @@ export type Database = {
         Returns: CompanySettings;
       };
       master_provision_company: {
+        Args: {
+          p_company_name: string;
+          p_company_slug: string;
+          p_admin_user_id: string;
+          p_admin_full_name: string;
+          p_admin_email: string;
+          p_admin_phone?: string | null;
+          p_company_description?: string | null;
+          p_company_email?: string | null;
+          p_company_phone?: string | null;
+          p_timezone?: string;
+          p_currency?: string;
+          p_support_email?: string | null;
+          p_support_phone?: string | null;
+          p_website_url?: string | null;
+          p_primary_color?: string | null;
+          p_secondary_color?: string | null;
+          p_accent_color?: string | null;
+          p_tagline?: string | null;
+        };
+        Returns: {
+          company: Company;
+          admin: Profile;
+          settings: CompanySettings;
+          branding: CompanyBranding | null;
+        };
+      };
+      service_provision_company: {
         Args: {
           p_company_name: string;
           p_company_slug: string;

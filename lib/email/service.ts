@@ -154,6 +154,7 @@ export async function sendTenantEmail(input: {
   html?: string;
   threadId?: string | null;
   mailboxId?: string | null;
+  customerId?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
 }) {
@@ -166,6 +167,18 @@ export async function sendTenantEmail(input: {
     html: input.html,
   });
 
+  let customerId = input.customerId ?? null;
+  if (!customerId && input.to[0]) {
+    const { data: customer } = await input.supabase
+      .from("profiles")
+      .select("id")
+      .eq("company_id", input.companyId)
+      .eq("role", "customer")
+      .ilike("email", input.to[0].trim())
+      .maybeSingle();
+    customerId = (customer as { id?: string } | null)?.id ?? null;
+  }
+
   let threadId = input.threadId;
   if (!threadId) {
     const { data: thread, error } = await input.supabase
@@ -175,6 +188,11 @@ export async function sendTenantEmail(input: {
         mailbox_id: input.mailboxId,
         subject: input.subject || "(no subject)",
         participants: input.to,
+        folder: "sent",
+        is_read: true,
+        customer_id: customerId,
+        customer_folder: customerId ? "inbox" : "inbox",
+        customer_is_read: customerId ? false : true,
         last_message_at: new Date().toISOString(),
       })
       .select("*")
@@ -184,11 +202,28 @@ export async function sendTenantEmail(input: {
     }
     threadId = (thread as { id: string }).id;
   } else {
+    const { data: existing } = await input.supabase
+      .from("email_threads")
+      .select("folder, customer_id")
+      .eq("id", threadId)
+      .maybeSingle();
+    const currentFolder = (existing as { folder?: string } | null)?.folder;
+    const existingCustomerId =
+      (existing as { customer_id?: string | null } | null)?.customer_id ?? null;
     await input.supabase
       .from("email_threads")
       .update({
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        is_read: true,
+        ...(currentFolder === "drafts" ? { folder: "sent" } : {}),
+        ...(customerId || existingCustomerId
+          ? {
+              customer_id: customerId || existingCustomerId,
+              customer_folder: "inbox",
+              customer_is_read: false,
+            }
+          : {}),
       })
       .eq("id", threadId);
   }
