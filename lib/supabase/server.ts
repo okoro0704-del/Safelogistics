@@ -1,14 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-import type { Database } from "@/lib/types/database";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export async function createClient() {
   const cookieStore = await cookies();
   const { url, anonKey } = getSupabaseEnv();
 
-  return createServerClient<Database>(url, anonKey, {
+  return createServerClient(url, anonKey, {
+    db: { schema: "pm" },
     cookies: {
       getAll() {
         return cookieStore.getAll();

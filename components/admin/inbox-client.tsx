@@ -92,6 +92,7 @@ export function AdminInboxClient() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [replyBody, setReplyBody] = useState("");
+  const [mailboxAddress, setMailboxAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadThreads = useCallback((nextFolder: MailboxFolder) => {
@@ -104,6 +105,7 @@ export function AdminInboxClient() {
         threads?: Thread[];
         counts?: FolderCounts;
         unreadInbox?: number;
+        mailboxAddress?: string | null;
       };
       if (!response.ok) {
         setError(payload.error ?? "Unable to load mailbox.");
@@ -113,6 +115,9 @@ export function AdminInboxClient() {
       if (payload.counts) setCounts(payload.counts);
       if (typeof payload.unreadInbox === "number") {
         setUnreadInbox(payload.unreadInbox);
+      }
+      if (payload.mailboxAddress !== undefined) {
+        setMailboxAddress(payload.mailboxAddress);
       }
       setError(null);
     });
@@ -355,7 +360,11 @@ export function AdminInboxClient() {
     <div className="space-y-6">
       <PageHeader
         title="Mailbox"
-        description="Company mailbox — Inbox, Sent, Drafts, and Spam."
+        description={
+          mailboxAddress
+            ? `Your company address: ${mailboxAddress}`
+            : "Company mailbox — allocate an address under Settings if missing."
+        }
         actions={
           <Button
             type="button"

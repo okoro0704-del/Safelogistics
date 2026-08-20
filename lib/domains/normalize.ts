@@ -136,19 +136,58 @@ export function tenantOriginForSlug(slug: string): string | null {
   return `https://${host}`;
 }
 
-/** Parse {slug}.{TENANT_SUBDOMAIN_BASE} → slug. */
+const RESERVED_APEX_LABELS = new Set([
+  "www",
+  "mm",
+  "pm",
+  "app",
+  "apps",
+  "api",
+  "mail",
+  "inbound",
+  "hub",
+  "master",
+  "admin",
+  "cdn",
+  "static",
+  "webfinance",
+  "distributor",
+  "safeogistics",
+]);
+
+/** Apex tenant hosts: {slug}.webfinance.app (excludes pm/mm/apps/dN/…). */
+export function parseApexTenantHostname(
+  hostname: string | null | undefined,
+): string | null {
+  const host = normalizeHostname(hostname);
+  if (!host) return null;
+  const apex =
+    normalizeHostname(process.env.NEXT_PUBLIC_MANAGED_APEX_DOMAIN) ||
+    "webfinance.app";
+  if (host === apex || !host.endsWith(`.${apex}`)) return null;
+  const slug = host.slice(0, -(apex.length + 1));
+  if (!slug || slug.includes(".")) return null;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+  if (RESERVED_APEX_LABELS.has(slug)) return null;
+  if (/^d\d+$/.test(slug)) return null; // distributor slots d1…d100
+  return slug;
+}
+
+/** Parse {slug}.{TENANT_SUBDOMAIN_BASE} or apex {slug}.webfinance.app → slug. */
 export function parseTenantSubdomainHostname(
   hostname: string | null | undefined,
 ): string | null {
   const host = normalizeHostname(hostname);
   const base = getTenantSubdomainBase();
-  if (!host || !base) return null;
-  if (host === base) return null;
-  if (!host.endsWith(`.${base}`)) return null;
-  const slug = host.slice(0, -(base.length + 1));
-  if (!slug || slug.includes(".")) return null;
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
-  return slug;
+  if (host && base) {
+    if (host !== base && host.endsWith(`.${base}`)) {
+      const slug = host.slice(0, -(base.length + 1));
+      if (slug && !slug.includes(".") && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+        return slug;
+      }
+    }
+  }
+  return parseApexTenantHostname(host);
 }
 
 export function isManagedTenantSubdomain(

@@ -6,9 +6,9 @@
 export const PLATFORM_DEFAULTS = {
   appName: "Parcel Movement",
   shortName: "Parcel Movement",
-  tagline: "White-label delivery platform for logistics operators.",
+  tagline: "Track deliveries and keep customers informed.",
   description:
-    "Multi-tenant delivery tracking platform. Create branded tenant apps from the Application Hub.",
+    "Branded delivery tracking for your company. Sign in to manage shipments and customers.",
   primaryColor: "#0f766e",
   secondaryColor: "#e2e8f0",
   accentColor: "#115e59",

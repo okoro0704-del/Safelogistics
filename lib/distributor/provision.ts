@@ -288,6 +288,60 @@ export async function provisionDistributorTenant(input: {
     }
     createdCompanyId = companyId;
 
+    // Register managed hostnames so apex + apps resolve as this tenant.
+    const managedHosts = [
+      `${input.body.slug}.webfinance.app`,
+      `${input.body.slug}.apps.webfinance.app`,
+    ];
+    for (const host of managedHosts) {
+      const token = generateVerificationToken();
+      await adminClient.from("company_domains").upsert(
+        {
+          company_id: companyId,
+          domain: host,
+          normalized_domain: host,
+          verification_token: token,
+          status: "active",
+          is_primary: host.endsWith(".apps.webfinance.app"),
+          verified_at: new Date().toISOString(),
+        },
+        { onConflict: "normalized_domain" },
+      );
+    }
+
+    // Allocate company mailbox address (info4{slug}@webfinance.app) even before Resend DNS.
+    const mailboxDomain = "webfinance.app";
+    const localPart = `info4${input.body.slug.replace(/[^a-z0-9-]/gi, "").toLowerCase()}`;
+    const fullAddress = `${localPart}@${mailboxDomain}`;
+    const { data: emailDomainRow } = await adminClient
+      .from("company_email_domains")
+      .upsert(
+        {
+          company_id: companyId,
+          domain: mailboxDomain,
+          normalized_domain: mailboxDomain,
+          status: "pending",
+          last_error: null,
+        },
+        { onConflict: "company_id,normalized_domain" },
+      )
+      .select("id")
+      .maybeSingle();
+
+    if (emailDomainRow?.id) {
+      await adminClient.from("company_mailboxes").upsert(
+        {
+          company_id: companyId,
+          email_domain_id: emailDomainRow.id,
+          local_part: localPart,
+          full_address: fullAddress,
+          mailbox_type: "app_inbox",
+          is_default: true,
+        },
+        { onConflict: "full_address" },
+      );
+    }
+
     if (input.body.custom_domain) {
       const token = generateVerificationToken();
       const { error: domainError } = await adminClient

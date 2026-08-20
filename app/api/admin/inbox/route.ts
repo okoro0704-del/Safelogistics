@@ -95,11 +95,14 @@ export async function GET(request: Request) {
       auth.companyId,
     );
 
+    const mailbox = await getDefaultMailbox(auth.supabase, auth.companyId);
+
     return NextResponse.json({
       folder,
       threads: threads ?? [],
       counts,
       unreadInbox,
+      mailboxAddress: mailbox?.full_address ?? null,
     });
   } catch (error) {
     return NextResponse.json(

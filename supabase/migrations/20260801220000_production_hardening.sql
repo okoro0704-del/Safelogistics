@@ -19,7 +19,7 @@ CREATE OR REPLACE FUNCTION public.generate_tracking_number()
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_candidate TEXT;
@@ -28,7 +28,7 @@ BEGIN
   LOOP
     v_attempts := v_attempts + 1;
     -- 12 hex chars ≈ 48 bits entropy; not sequential
-    v_candidate := 'DLV-' || upper(encode(gen_random_bytes(6), 'hex'));
+    v_candidate := 'DLV-' || upper(encode(extensions.gen_random_bytes(6), 'hex'));
 
     EXIT WHEN NOT EXISTS (
       SELECT 1 FROM public.deliveries WHERE tracking_number = v_candidate

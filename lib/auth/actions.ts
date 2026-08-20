@@ -266,3 +266,48 @@ export async function changePasswordAction(
 
   return { success: "Your password has been updated." };
 }
+
+export async function updateLoginEmailAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Enter a valid email address." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be signed in to update your login email." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = (profile as { role?: string } | null)?.role;
+  if (role !== "admin" && role !== "customer") {
+    return { error: "Only company users can change their login email here." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) {
+    return { error: error.message || "Unable to update login email." };
+  }
+
+  await supabase.from("profiles").update({ email }).eq("id", user.id);
+
+  return {
+    success:
+      "Login email updated. If confirmation is required, check your inbox before the next sign-in.",
+  };
+}

@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
 
     // Caller-scoped client (respects JWT / RLS)
     const callerClient = createClient(supabaseUrl, anonKey, {
+      db: { schema: "pm" },
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -83,6 +84,7 @@ Deno.serve(async (req) => {
 
     // Privileged client — server only
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      db: { schema: "pm" },
       auth: { autoRefreshToken: false, persistSession: false },
     });
 

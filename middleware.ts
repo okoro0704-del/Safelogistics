@@ -211,8 +211,12 @@ export async function middleware(request: NextRequest) {
       response.headers.set("Vary", "Host, Cookie");
     }
 
-    // Platform root without tenant → Application Hub.
-    if (!tenant && (effectivePath === "/" || effectivePath === "")) {
+    // Platform root without tenant → Application Hub (platform host only).
+    if (
+      !tenant &&
+      isPlatformHostname(hostname) &&
+      (effectivePath === "/" || effectivePath === "")
+    ) {
       const hubUrl = request.nextUrl.clone();
       hubUrl.pathname = user ? "/master-admin" : "/master-admin/login";
       hubUrl.search = "";
@@ -222,6 +226,26 @@ export async function middleware(request: NextRequest) {
       });
       clearPreviewCookie(redirect);
       return redirect;
+    }
+
+    // Non-platform hosts never expose Application Hub / Master Admin.
+    // Branded login (/login) is for company admins and customers.
+    if (
+      !isPlatformHostname(hostname) &&
+      (effectivePath.startsWith("/master-admin") ||
+        effectivePath.startsWith("/hub") ||
+        effectivePath.startsWith("/api/master-admin"))
+    ) {
+      if (effectivePath.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Not available on this domain." },
+          { status: 403 },
+        );
+      }
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+      return withTenantHeaders(NextResponse.redirect(loginUrl), tenantHeaders);
     }
 
     const isAdminRoute = effectivePath.startsWith("/admin");
@@ -256,7 +280,7 @@ export async function middleware(request: NextRequest) {
         );
       }
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/unauthorized";
+      redirectUrl.pathname = "/login";
       redirectUrl.search = "";
       const redirect = withTenantHeaders(
         NextResponse.redirect(redirectUrl),

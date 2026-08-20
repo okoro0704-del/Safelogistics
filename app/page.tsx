@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, MapPinned, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, Quote } from "lucide-react";
 
 import { BrandTheme } from "@/components/branding/brand-theme";
 import {
@@ -21,18 +21,17 @@ import { getRequestTenantContext } from "@/lib/domains/resolve";
 export const dynamic = "force-dynamic";
 
 /**
- * Tenant white-label landing (custom domains only).
- * Platform host (e.g. pm.webfinance.app) redirects `/` → Application Hub.
+ * Tenant branded landing (apex / apps / custom domains).
+ * Platform host (e.g. pm.webfinance.app) redirects `/` → Application Hub via middleware.
  */
 export default async function LandingPage() {
   const ctx = await getRequestTenantContext();
 
-  if (!ctx.isCustomDomain || !ctx.tenant) {
-    redirect("/master-admin");
+  if (!ctx.tenant) {
+    redirect("/login");
   }
 
   const displayName = ctx.tenant.company_name;
-  const tagline = ctx.brand.tagline;
 
   return (
     <BrandTheme brand={ctx.brand}>
@@ -51,9 +50,8 @@ export default async function LandingPage() {
                 </span>
               </h1>
               <p className="max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
-                {tagline} Manage deliveries, monitor progress, and keep
-                customers informed in real time — without exposing private
-                account data.
+                Manage deliveries, monitor progress, and keep customers informed
+                in real time — without exposing private account data.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild size="lg">
@@ -82,34 +80,57 @@ export default async function LandingPage() {
           </section>
 
           <section className="border-t border-border/70 bg-card/60">
-            <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 md:grid-cols-3 md:px-6">
-              {[
-                {
-                  icon: Truck,
-                  title: "Admin-controlled movement",
-                  body: "Parcels advance only when an admin proceeds — no GPS auto-updates.",
-                },
-                {
-                  icon: MapPinned,
-                  title: "Live route visibility",
-                  body: "Customers and public trackers see the same stop timeline and map.",
-                },
-                {
-                  icon: ShieldCheck,
-                  title: "Tenant isolation",
-                  body: "Each company stays separated by Postgres RLS — branding and domains included.",
-                },
-              ].map((item) => (
-                <div key={item.title} className="space-y-3">
-                  <div className="inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <item.icon className="size-5" aria-hidden />
-                  </div>
-                  <h2 className="text-base font-semibold">{item.title}</h2>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {item.body}
-                  </p>
-                </div>
-              ))}
+            <div className="mx-auto max-w-6xl px-4 py-12 md:px-6">
+              <div className="mb-8 max-w-2xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+                  Customer stories
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  Delivered when promised
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground md:text-base">
+                  Customers who got their parcels on time — and knew where they
+                  were every step of the way.
+                </p>
+              </div>
+              <div className="grid gap-6 md:grid-cols-3">
+                {[
+                  {
+                    quote:
+                      "My package showed up the morning they said it would. I checked the tracker the night before and every stop matched — no surprises.",
+                    name: "Amara Okoye",
+                    detail: "Received in Lagos · on-time",
+                  },
+                  {
+                    quote:
+                      "I was waiting on documents for a client meeting. They arrived within the expected window and I could share the live route with my office.",
+                    name: "Daniel Whitfield",
+                    detail: "Received in Manchester · on-time",
+                  },
+                  {
+                    quote:
+                      "We needed spare parts by Friday. Tracking stayed clear the whole trip and the delivery landed exactly when promised.",
+                    name: "Sofia Ramirez",
+                    detail: "Received in Miami · on-time",
+                  },
+                ].map((item) => (
+                  <figure
+                    key={item.name}
+                    className="flex h-full flex-col rounded-xl border border-border/80 bg-background/80 p-5 shadow-sm"
+                  >
+                    <Quote className="size-5 text-primary/70" aria-hidden />
+                    <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-foreground">
+                      “{item.quote}”
+                    </blockquote>
+                    <figcaption className="mt-4 border-t border-border/60 pt-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{item.detail}</p>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
             </div>
           </section>
         </main>

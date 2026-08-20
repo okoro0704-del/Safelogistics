@@ -35,7 +35,11 @@ export function LoginForm({
   const [state, formAction, pending] = useActionState(signInAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
   const title = companyName ? companyName : "Welcome back";
-  const description = tagline || "Sign in to your account";
+  const description =
+    tagline ||
+    (companyName
+      ? "Company admins and customers sign in with email and password."
+      : "Sign in to your account");
 
   return (
     <Card className="w-full max-w-md border-border/80 shadow-md">
