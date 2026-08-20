@@ -13,6 +13,7 @@ import { DeliveryTimeline } from "@/components/delivery/delivery-timeline";
 import { LocationHistory } from "@/components/delivery/location-history";
 import { DeliveryMapDynamic } from "@/components/delivery/delivery-map-dynamic";
 import { ProceedControls } from "@/components/delivery/proceed-controls";
+import { ScheduleMovementControls } from "@/components/delivery/schedule-movement-controls";
 import {
   Card,
   CardContent,
@@ -24,6 +25,7 @@ import { fetchDeliveryDetailClient } from "@/lib/delivery/client-fetch";
 import { buildDeliveryViewModel } from "@/lib/delivery/view-model";
 import { createClient } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
+import { finalizeDeliveryMovementAction } from "@/lib/admin/actions";
 import type {
   DeliveryLocationHistory,
   DeliveryStop,
@@ -58,6 +60,7 @@ export function DeliveryOperationsPanel({
     refreshInFlight.current = true;
     setSyncing(true);
     try {
+      await finalizeDeliveryMovementAction(deliveryId);
       const next = await fetchDeliveryDetailClient(deliveryId);
       if (next) {
         setState(next);
@@ -87,7 +90,7 @@ export function DeliveryOperationsPanel({
         "postgres_changes",
         {
           event: "*",
-          schema: "public",
+          schema: "pm",
           table: "deliveries",
           filter: `id=eq.${deliveryId}`,
         },
@@ -99,7 +102,7 @@ export function DeliveryOperationsPanel({
         "postgres_changes",
         {
           event: "*",
-          schema: "public",
+          schema: "pm",
           table: "delivery_stops",
           filter: `delivery_id=eq.${deliveryId}`,
         },
@@ -111,7 +114,7 @@ export function DeliveryOperationsPanel({
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "public",
+          schema: "pm",
           table: "delivery_location_history",
           filter: `delivery_id=eq.${deliveryId}`,
         },
@@ -135,8 +138,8 @@ export function DeliveryOperationsPanel({
             trackingNumber={view.delivery.tracking_number}
           />
           <CardDescription>
-            The parcel advances exactly one stop when you confirm Proceed. It
-            never moves automatically.
+            Schedule timed movement so trackers see the parcel travel on the map.
+            Instant jump is still available when you need to skip the transit window.
             {syncing ? " Syncing latest state…" : ""}
           </CardDescription>
         </CardHeader>
@@ -154,6 +157,16 @@ export function DeliveryOperationsPanel({
             progressPercent={view.progressPercent}
           />
 
+          <ScheduleMovementControls
+            deliveryId={deliveryId}
+            currentStop={view.currentStop}
+            nextStop={view.nextStop}
+            canSchedule={view.canScheduleMovement}
+            activeMovement={view.movement}
+            onScheduled={refresh}
+            onError={setError}
+          />
+
           <ProceedControls
             deliveryId={deliveryId}
             trackingNumber={view.delivery.tracking_number}
@@ -162,6 +175,7 @@ export function DeliveryOperationsPanel({
             canProceed={view.canProceed}
             isDelivered={view.isDelivered}
             isCancelled={view.isCancelled}
+            hasActiveMovement={view.hasActiveMovement}
             onAdvanced={refresh}
             onError={setError}
           />
@@ -257,7 +271,7 @@ export function DeliveryOperationsPanel({
           <DeliveryMapDynamic
             model={view.mapModel}
             title="Route map"
-            description="Parcel location updates when you proceed to the next stop."
+            description="During a scheduled transit, trackers see a moving beacon travel between stops."
           />
           <LocationHistory history={view.history} />
         </div>

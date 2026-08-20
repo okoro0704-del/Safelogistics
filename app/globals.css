@@ -97,3 +97,75 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* Timed transit beacon on Mapbox */
+.delivery-transit-beacon {
+  z-index: 2;
+}
+
+.delivery-transit-beacon__pulse {
+  position: absolute;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 35%, transparent);
+  animation: delivery-transit-beep 1.1s ease-out infinite;
+}
+
+.delivery-transit-beacon__core {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 30%, white),
+    0 2px 8px rgba(15, 23, 42, 0.28);
+  animation: delivery-transit-throb 1.1s ease-in-out infinite;
+}
+
+.delivery-transit-beacon__label {
+  margin-top: 4px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+}
+
+@keyframes delivery-transit-beep {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes delivery-transit-throb {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+

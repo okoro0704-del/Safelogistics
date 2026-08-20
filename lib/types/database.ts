@@ -231,8 +231,32 @@ export type Delivery = {
   current_stop_id: string | null;
   status: DeliveryStatus;
   estimated_delivery_at: string | null;
+  movement_started_at: string | null;
+  movement_duration_minutes: number | null;
+  movement_from_stop_id: string | null;
+  movement_to_stop_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DeliveryMovement = {
+  started_at: string;
+  duration_minutes: number;
+  ends_at: string;
+  from: {
+    id?: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    stop_order: number;
+  };
+  to: {
+    id?: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    stop_order: number;
+  };
 };
 
 export type DeliveryStop = {
@@ -340,6 +364,7 @@ export type PublicTrackingResult =
       estimated_delivery_at: string | null;
       last_updated: string;
       branding?: PublicCompanyBranding | null;
+      movement?: DeliveryMovement | null;
     };
 
 export type Database = {
@@ -537,6 +562,21 @@ export type Database = {
       };
       proceed_to_next_stop: {
         Args: { p_delivery_id: string };
+        Returns: unknown;
+      };
+      schedule_delivery_movement: {
+        Args: {
+          p_delivery_id: string;
+          p_starts_at: string;
+          p_duration_minutes: number;
+        };
+        Returns: unknown;
+      };
+      finalize_delivery_movement_if_due: {
+        Args: {
+          p_delivery_id?: string | null;
+          p_tracking_number?: string | null;
+        };
         Returns: unknown;
       };
       update_delivery_status: {

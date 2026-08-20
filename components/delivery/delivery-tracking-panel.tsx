@@ -64,6 +64,11 @@ export function DeliveryTrackingPanel({
       refreshInFlight.current = true;
       setSyncing(true);
       try {
+        const sb = createClient();
+        await sb.rpc("finalize_delivery_movement_if_due", {
+          p_delivery_id: deliveryId,
+          p_tracking_number: null,
+        });
         const next = await fetchDeliveryDetailClient(deliveryId);
         if (!next) {
           setError("We couldn't find that delivery.");
@@ -102,7 +107,7 @@ export function DeliveryTrackingPanel({
         "postgres_changes",
         {
           event: "*",
-          schema: "public",
+          schema: "pm",
           table: "deliveries",
           filter: `id=eq.${deliveryId}`,
         },
@@ -114,7 +119,7 @@ export function DeliveryTrackingPanel({
         "postgres_changes",
         {
           event: "*",
-          schema: "public",
+          schema: "pm",
           table: "delivery_stops",
           filter: `delivery_id=eq.${deliveryId}`,
         },
@@ -126,7 +131,7 @@ export function DeliveryTrackingPanel({
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "public",
+          schema: "pm",
           table: "delivery_location_history",
           filter: `delivery_id=eq.${deliveryId}`,
         },

@@ -182,3 +182,102 @@ export async function proceedToNextStopAction(
     };
   }
 }
+
+export async function scheduleDeliveryMovementAction(
+  deliveryId: string,
+  startsAtIso: string,
+  durationMinutes: number,
+): Promise<ActionResult<{ status: string }>> {
+  try {
+    if (!deliveryId) {
+      return { ok: false, error: "Delivery id is required." };
+    }
+    if (!startsAtIso || Number.isNaN(Date.parse(startsAtIso))) {
+      return { ok: false, error: "Choose a valid movement start time." };
+    }
+    if (
+      !Number.isFinite(durationMinutes) ||
+      durationMinutes < 1 ||
+      durationMinutes > 10080
+    ) {
+      return {
+        ok: false,
+        error: "Transit duration must be between 1 minute and 7 days.",
+      };
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("schedule_delivery_movement", {
+      p_delivery_id: deliveryId,
+      p_starts_at: new Date(startsAtIso).toISOString(),
+      p_duration_minutes: Math.round(durationMinutes),
+    });
+
+    if (error || !data) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("schedule_delivery_movement failed", error);
+      }
+      return {
+        ok: false,
+        error: friendlyErrorMessage(
+          error?.message ?? "Unknown error",
+          "Unable to schedule movement. Please refresh and try again.",
+        ),
+      };
+    }
+
+    const payload = data as { status?: string; delivery?: Delivery };
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/deliveries");
+    revalidatePath(`/admin/deliveries/${deliveryId}`);
+    if (payload.delivery?.customer_id) {
+      revalidatePath(`/admin/customers/${payload.delivery.customer_id}`);
+    }
+
+    return {
+      ok: true,
+      data: { status: payload.status ?? payload.delivery?.status ?? "in_transit" },
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("scheduleDeliveryMovementAction", error);
+    }
+    return {
+      ok: false,
+      error: friendlyErrorMessage(
+        error,
+        "Unable to schedule movement. Please refresh and try again.",
+      ),
+    };
+  }
+}
+
+export async function finalizeDeliveryMovementAction(
+  deliveryId: string,
+): Promise<ActionResult<{ finalized: boolean }>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc(
+      "finalize_delivery_movement_if_due",
+      {
+        p_delivery_id: deliveryId,
+        p_tracking_number: null,
+      },
+    );
+    if (error) {
+      return {
+        ok: false,
+        error: friendlyErrorMessage(error.message, "Unable to update movement."),
+      };
+    }
+    const payload = data as { finalized?: boolean };
+    revalidatePath(`/admin/deliveries/${deliveryId}`);
+    return { ok: true, data: { finalized: Boolean(payload?.finalized) } };
+  } catch (error) {
+    return {
+      ok: false,
+      error: friendlyErrorMessage(error, "Unable to update movement."),
+    };
+  }
+}

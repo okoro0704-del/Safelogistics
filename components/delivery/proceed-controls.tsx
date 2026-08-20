@@ -25,6 +25,7 @@ export function ProceedControls({
   canProceed,
   isDelivered,
   isCancelled,
+  hasActiveMovement = false,
   onAdvanced,
   onError,
 }: {
@@ -35,6 +36,7 @@ export function ProceedControls({
   canProceed: boolean;
   isDelivered: boolean;
   isCancelled: boolean;
+  hasActiveMovement?: boolean;
   onAdvanced: () => Promise<void> | void;
   onError: (message: string) => void;
 }) {
@@ -78,7 +80,7 @@ export function ProceedControls({
     return null;
   }
 
-  const label = proceedButtonLabel(nextStop);
+  const label = proceedButtonLabel(nextStop, hasActiveMovement);
 
   function confirmProceed() {
     if (pending) return;
@@ -97,7 +99,9 @@ export function ProceedControls({
       const message = result.data.is_delivered
         ? "Delivery marked as delivered."
         : nextStop
-          ? `Delivery advanced to ${nextStop.name}`
+          ? hasActiveMovement
+            ? `Arrived at ${nextStop.name}`
+            : `Delivery jumped to ${nextStop.name}`
           : "Delivery advanced successfully.";
       setSuccessMessage(message);
       success(message);
@@ -110,6 +114,7 @@ export function ProceedControls({
       <Button
         type="button"
         size="lg"
+        variant={hasActiveMovement ? "default" : "outline"}
         className="h-12 w-full text-base"
         disabled={pending}
         onClick={() => setOpen(true)}
@@ -137,13 +142,18 @@ export function ProceedControls({
       <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Proceed Delivery?</DialogTitle>
+            <DialogTitle>
+              {hasActiveMovement ? "Arrive now?" : "Jump to next stop?"}
+            </DialogTitle>
             <DialogDescription>
-              This will move tracking for{" "}
+              {hasActiveMovement
+                ? "This ends the timed transit early and places the parcel at the next stop."
+                : "This instantly moves tracking without a transit animation. Prefer Schedule movement for timed travel."}{" "}
+              Tracking number{" "}
               <span className="font-mono font-medium text-foreground">
                 {trackingNumber}
-              </span>{" "}
-              to the next stop.
+              </span>
+              .
             </DialogDescription>
           </DialogHeader>
 
@@ -166,10 +176,6 @@ export function ProceedControls({
                   : "Mark as delivered at final destination"}
               </p>
             </div>
-            <p className="text-muted-foreground">
-              This will move the delivery to the next stop. Progress stops until
-              you proceed again.
-            </p>
           </div>
 
           <DialogFooter>
@@ -187,8 +193,10 @@ export function ProceedControls({
                   <Loader2 className="size-4 animate-spin" aria-hidden />
                   Proceeding...
                 </>
+              ) : hasActiveMovement ? (
+                "Arrive now"
               ) : (
-                "Proceed"
+                "Jump now"
               )}
             </Button>
           </DialogFooter>

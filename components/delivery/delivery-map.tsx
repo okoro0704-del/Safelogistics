@@ -24,6 +24,10 @@ import type {
   MapboxPopup,
 } from "@/lib/delivery/mapbox-types";
 import type { DeliveryMapModel } from "@/lib/delivery/view-model";
+import {
+  interpolateLngLat,
+  transitProgress,
+} from "@/lib/delivery/view-model";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -255,8 +259,43 @@ function MapLegend() {
         />{" "}
         Remaining route
       </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block size-2.5 rounded-full bg-primary shadow-[0_0_0_4px_rgba(15,118,110,0.25)]"
+          aria-hidden
+        />{" "}
+        Moving parcel
+      </li>
     </ul>
   );
+}
+
+function createTransitBeaconElement(fromName: string, toName: string): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className = "delivery-transit-beacon";
+  el.setAttribute("role", "status");
+  el.setAttribute(
+    "aria-label",
+    `Parcel in transit from ${fromName} to ${toName}`,
+  );
+  el.style.cssText =
+    "display:flex;flex-direction:column;align-items:center;pointer-events:none;transform:translateY(-6px)";
+
+  const pulse = document.createElement("div");
+  pulse.className = "delivery-transit-beacon__pulse";
+  el.appendChild(pulse);
+
+  const core = document.createElement("div");
+  core.className = "delivery-transit-beacon__core";
+  core.textContent = "●";
+  el.appendChild(core);
+
+  const label = document.createElement("div");
+  label.className = "delivery-transit-beacon__label";
+  label.textContent = "In transit";
+  el.appendChild(label);
+
+  return el;
 }
 
 /**
@@ -266,7 +305,7 @@ function MapLegend() {
 export function DeliveryMap({
   model,
   title = "Route map",
-  description = "Visualizes the delivery route. Location updates when the admin advances the parcel.",
+  description = "Visualizes the delivery route. During timed movement, a beacon travels between stops.",
   className,
 }: DeliveryMapProps) {
   const token = getAccessToken();
@@ -274,6 +313,8 @@ export function DeliveryMap({
   const mapboxRef = useRef<MapboxGL | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<MapboxMarker[]>([]);
+  const transitMarkerRef = useRef<MapboxMarker | null>(null);
+  const transitRafRef = useRef<number | null>(null);
   const popupRef = useRef<MapboxPopup | null>(null);
   const userInteractedRef = useRef(false);
   const fittedRouteKeyRef = useRef<string | null>(null);
@@ -281,6 +322,7 @@ export function DeliveryMap({
   const pointsRef = useRef<MapStopPoint[]>([]);
   const routeKeyRef = useRef("");
   const currentIdRef = useRef<string | null>(null);
+  const transitRef = useRef(model.transit);
   const [loading, setLoading] = useState(Boolean(token));
   const [initError, setInitError] = useState(false);
   const reactId = useId();
@@ -297,16 +339,69 @@ export function DeliveryMap({
     model.currentStop?.id ??
     points.find((p) => p.status === "current")?.id ??
     null;
+  const transitKey = model.transit
+    ? `${model.transit.startedAt}|${model.transit.durationMinutes}|${model.transit.fromLngLat.join(",")}|${model.transit.toLngLat.join(",")}`
+    : "none";
 
   pointsRef.current = points;
   routeKeyRef.current = routeKey;
   currentIdRef.current = currentId;
+  transitRef.current = model.transit;
 
   function clearMarkers() {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     popupRef.current?.remove();
     popupRef.current = null;
+  }
+
+  function clearTransitMarker() {
+    if (transitRafRef.current != null) {
+      cancelAnimationFrame(transitRafRef.current);
+      transitRafRef.current = null;
+    }
+    transitMarkerRef.current?.remove();
+    transitMarkerRef.current = null;
+  }
+
+  function updateTransitBeacon() {
+    const map = mapRef.current;
+    const mapboxgl = mapboxRef.current;
+    const transit = transitRef.current;
+    if (!map || !mapboxgl) return;
+
+    if (!transit) {
+      clearTransitMarker();
+      return;
+    }
+
+    const progress = transitProgress(
+      transit.startedAt,
+      transit.durationMinutes,
+    );
+    const lngLat = interpolateLngLat(
+      transit.fromLngLat,
+      transit.toLngLat,
+      progress,
+    );
+
+    if (!transitMarkerRef.current) {
+      const el = createTransitBeaconElement(transit.fromName, transit.toName);
+      transitMarkerRef.current = new mapboxgl.Marker({
+        element: el,
+        anchor: "bottom",
+      })
+        .setLngLat(lngLat)
+        .addTo(map);
+    } else {
+      transitMarkerRef.current.setLngLat(lngLat);
+    }
+
+    if (progress < 1) {
+      transitRafRef.current = requestAnimationFrame(() => {
+        updateTransitBeacon();
+      });
+    }
   }
 
   function updateMapVisuals() {
@@ -359,10 +454,7 @@ export function DeliveryMap({
       userInteractedRef.current = false;
       fitToPoints(mapboxgl, map, nextPoints);
       lastCurrentIdRef.current = nextCurrentId;
-      return;
-    }
-
-    if (
+    } else if (
       nextCurrentId &&
       nextCurrentId !== lastCurrentIdRef.current &&
       !userInteractedRef.current
@@ -375,8 +467,13 @@ export function DeliveryMap({
           padding: 48,
         });
       }
+      lastCurrentIdRef.current = nextCurrentId;
+    } else {
+      lastCurrentIdRef.current = nextCurrentId;
     }
-    lastCurrentIdRef.current = nextCurrentId;
+
+    clearTransitMarker();
+    updateTransitBeacon();
   }
 
   // Initialize Mapbox once
@@ -424,13 +521,13 @@ export function DeliveryMap({
           mapRef.current = map;
           setLoading(false);
           updateMapVisuals();
-          // Ensure correct size after layout
           map.resize();
         });
 
         mapRef.current = map;
       } catch {
         if (!cancelled) {
+          clearTransitMarker();
           clearMarkers();
           mapRef.current?.remove();
           mapRef.current = null;
@@ -443,6 +540,7 @@ export function DeliveryMap({
 
     return () => {
       cancelled = true;
+      clearTransitMarker();
       clearMarkers();
       mapRef.current?.remove();
       mapRef.current = null;
@@ -451,7 +549,6 @@ export function DeliveryMap({
       lastCurrentIdRef.current = null;
       userInteractedRef.current = false;
     };
-    // Re-create only when token/coords availability flips
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, points.length === 0]);
 
@@ -466,7 +563,7 @@ export function DeliveryMap({
       map.once("load", () => updateMapVisuals());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeKey, currentId, skippedCount, token]);
+  }, [routeKey, currentId, skippedCount, transitKey, token]);
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -504,6 +601,13 @@ export function DeliveryMap({
             )}
           </div>
         )}
+
+        {model.transit ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            In transit: {model.transit.fromName} → {model.transit.toName} (
+            {model.transit.durationMinutes} min window)
+          </p>
+        ) : null}
 
         {skippedCount > 0 ? (
           <p className="text-xs text-muted-foreground" role="status">

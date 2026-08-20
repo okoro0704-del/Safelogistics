@@ -1,4 +1,5 @@
 import type { DeliveryMapModel } from "@/lib/delivery/view-model";
+import { movementToTransit } from "@/lib/delivery/view-model";
 import type {
   DeliveryStop,
   PublicTrackingResult,
@@ -353,6 +354,7 @@ export function publicTrackingToMapModel(
     currentStop,
     completedStops: ordered.filter((s) => s.status === "completed"),
     upcomingStops: ordered.filter((s) => s.status === "upcoming"),
+    transit: movementToTransit(result.movement),
   };
 }
 
