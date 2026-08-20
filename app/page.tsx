@@ -97,21 +97,21 @@ export default async function LandingPage() {
                 {[
                   {
                     quote:
-                      "My package showed up the morning they said it would. I checked the tracker the night before and every stop matched — no surprises.",
-                    name: "Amara Okoye",
-                    detail: "Received in Lagos · on-time",
+                      "My package arrived the morning they promised. I checked tracking the night before and every stop lined up — no guessing, no delays.",
+                    name: "Jessica Harper",
+                    detail: "American customer · received on time",
                   },
                   {
                     quote:
-                      "I was waiting on documents for a client meeting. They arrived within the expected window and I could share the live route with my office.",
-                    name: "Daniel Whitfield",
-                    detail: "Received in Manchester · on-time",
+                      "I needed documents for a client meeting in London. They landed in the window they gave me, and I could share the live route with the office.",
+                    name: "James Hartley",
+                    detail: "British customer · received on time",
                   },
                   {
                     quote:
-                      "We needed spare parts by Friday. Tracking stayed clear the whole trip and the delivery landed exactly when promised.",
-                    name: "Sofia Ramirez",
-                    detail: "Received in Miami · on-time",
+                      "We were waiting on parts in Berlin. The timeline stayed clear the whole way, and delivery came exactly when expected.",
+                    name: "Lena Hoffmann",
+                    detail: "German customer · received on time",
                   },
                 ].map((item) => (
                   <figure
