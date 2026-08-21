@@ -20,6 +20,10 @@ export type DistributorProvisionBody = {
   admin_email: string;
   admin_full_name: string;
   admin_phone?: string | null;
+  brand_name?: string | null;
+  logo_url?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
 };
 
 export type DistributorProvisionResponse = {
@@ -55,6 +59,26 @@ export function parseDistributorProvisionBody(
   const admin_email = String(body.admin_email ?? "").trim().toLowerCase();
   const admin_full_name = String(body.admin_full_name ?? "").trim();
   const admin_phone = String(body.admin_phone ?? "").trim() || null;
+
+  const nested =
+    body.branding && typeof body.branding === "object"
+      ? (body.branding as Record<string, unknown>)
+      : {};
+  const brand_name =
+    String(body.brand_name ?? nested.brand_name ?? nested.brandName ?? "").trim() ||
+    null;
+  const logo_url =
+    String(body.logo_url ?? nested.logo_url ?? nested.logoUrl ?? "").trim() || null;
+  let primary_color =
+    String(body.primary_color ?? nested.primary_color ?? nested.primaryColor ?? "")
+      .trim()
+      .toLowerCase() || null;
+  let accent_color =
+    String(body.accent_color ?? nested.accent_color ?? nested.accentColor ?? "")
+      .trim()
+      .toLowerCase() || null;
+  if (primary_color && !/^#[0-9a-f]{6}$/.test(primary_color)) primary_color = null;
+  if (accent_color && !/^#[0-9a-f]{6}$/.test(accent_color)) accent_color = null;
 
   if (!isUuid(client_id)) {
     return { ok: false, error: "client_id must be a UUID." };
@@ -103,6 +127,10 @@ export function parseDistributorProvisionBody(
       admin_email,
       admin_full_name,
       admin_phone,
+      brand_name,
+      logo_url,
+      primary_color,
+      accent_color,
     },
   };
 }
@@ -245,10 +273,11 @@ export async function provisionDistributorTenant(input: {
 
     createdUserId = created.user.id;
 
+    const companyName = (input.body.brand_name || input.body.display_name).slice(0, 120);
     const { data: result, error: provisionError } = await adminClient.rpc(
       "service_provision_company",
       {
-        p_company_name: input.body.display_name,
+        p_company_name: companyName,
         p_company_slug: input.body.slug,
         p_admin_user_id: created.user.id,
         p_admin_full_name: input.body.admin_full_name,
@@ -256,7 +285,9 @@ export async function provisionDistributorTenant(input: {
         p_admin_phone: input.body.admin_phone,
         p_company_email: input.body.admin_email,
         p_support_email: input.body.admin_email,
-        p_tagline: `Provisioned via Webfinance (${input.body.product_sku})`,
+        p_primary_color: input.body.primary_color,
+        p_accent_color: input.body.accent_color,
+        p_tagline: `Sign in to ${companyName}`,
       } as never,
     );
 
@@ -287,6 +318,29 @@ export async function provisionDistributorTenant(input: {
       };
     }
     createdCompanyId = companyId;
+
+    // Persist logo + colors onto company_branding (RPC may omit logo_url).
+    if (input.body.logo_url || input.body.primary_color || input.body.accent_color) {
+      await adminClient.from("company_branding").upsert(
+        {
+          company_id: companyId,
+          logo_url: input.body.logo_url,
+          primary_color: input.body.primary_color,
+          accent_color: input.body.accent_color,
+          tagline: `Sign in to ${companyName}`,
+          support_email: input.body.admin_email,
+        },
+        { onConflict: "company_id" },
+      );
+      await adminClient
+        .from("companies")
+        .update({
+          logo_url: input.body.logo_url,
+          primary_color: input.body.primary_color,
+          name: companyName,
+        })
+        .eq("id", companyId);
+    }
 
     // Register managed hostnames so apex + apps resolve as this tenant.
     const managedHosts = [
