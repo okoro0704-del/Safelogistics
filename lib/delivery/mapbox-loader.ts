@@ -48,26 +48,29 @@ function loadScript(src: string, id: string): Promise<void> {
 }
 
 /**
- * Prefer Mapbox when a public token is present; otherwise load MapLibre + free
- * OSM raster style so maps never render blank for missing Mapbox billing.
+ * Prefer MapLibre + free OSM tiles so maps never go blank when Mapbox
+ * tokens are missing, restricted by URL, or fail at runtime.
+ * Set NEXT_PUBLIC_USE_MAPBOX=true to force Mapbox GL when a token is present.
  */
 export async function loadMapboxGL(): Promise<MapboxGL> {
   if (typeof window === "undefined") {
     throw new Error("Map can only load in the browser.");
   }
 
-  const token = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
+  const forceMapbox =
+    (process.env.NEXT_PUBLIC_USE_MAPBOX ?? "").trim() === "true" &&
+    Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim());
   const win = window as unknown as {
     mapboxgl?: MapboxGL;
     maplibregl?: MapboxGL;
   };
 
-  if (token && win.mapboxgl) return win.mapboxgl;
-  if (!token && win.maplibregl) return win.maplibregl;
+  if (forceMapbox && win.mapboxgl) return win.mapboxgl;
+  if (!forceMapbox && win.maplibregl) return win.maplibregl;
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
-    if (token) {
+    if (forceMapbox) {
       const base = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_VERSION}`;
       await loadStylesheet(`${base}/mapbox-gl.css`, CSS_ID);
       await loadScript(`${base}/mapbox-gl.js`, SCRIPT_ID);
@@ -79,7 +82,6 @@ export async function loadMapboxGL(): Promise<MapboxGL> {
     await loadStylesheet(`${base}/maplibre-gl.css`, CSS_ID);
     await loadScript(`${base}/maplibre-gl.js`, SCRIPT_ID);
     if (!win.maplibregl) throw new Error("MapLibre failed to initialize.");
-    // Expose as mapboxgl for existing call sites
     win.mapboxgl = win.maplibregl;
     return win.maplibregl;
   })();
@@ -93,9 +95,10 @@ export async function loadMapboxGL(): Promise<MapboxGL> {
 }
 
 export function getMapStyle(): string | Record<string, unknown> {
-  const token = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
-  if (token) return "mapbox://styles/mapbox/light-v11";
-  // Free OSM raster style (no API key)
+  const forceMapbox =
+    (process.env.NEXT_PUBLIC_USE_MAPBOX ?? "").trim() === "true" &&
+    Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim());
+  if (forceMapbox) return "mapbox://styles/mapbox/light-v11";
   return {
     version: 8,
     name: "OSM",
@@ -116,7 +119,10 @@ export function getMapStyle(): string | Record<string, unknown> {
 }
 
 export function hasMapboxToken(): boolean {
-  return Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim());
+  return (
+    (process.env.NEXT_PUBLIC_USE_MAPBOX ?? "").trim() === "true" &&
+    Boolean((process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim())
+  );
 }
 
 export { MAPBOX_VERSION };

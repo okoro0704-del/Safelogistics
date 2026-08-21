@@ -526,19 +526,6 @@ export function DeliveryMap({
           map.resize();
         });
 
-        map.on("error", (e) => {
-          const msg = String((e as { error?: { message?: string } })?.error?.message ?? e ?? "");
-          if (/access token|unauthorized|style|failed to fetch|403|401/i.test(msg)) {
-            console.warn("Map style failed; falling back to OSM", msg);
-            try {
-              map.setStyle(getMapStyle() as never);
-            } catch {
-              setInitError(true);
-              setLoading(false);
-            }
-          }
-        });
-
         mapRef.current = map;
       } catch {
         if (!cancelled) {
