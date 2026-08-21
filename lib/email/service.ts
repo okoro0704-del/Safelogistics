@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 import {
   createRegistrarProvider,
@@ -252,41 +252,54 @@ export async function sendTenantEmail(input: {
   return { threadId, message, resendId: sent.id };
 }
 
-/** Verify Resend webhook signing secret (svix-style or shared secret header). */
+/** Verify Resend / Svix webhook signature. */
 export function verifyResendWebhookSignature(input: {
   payload: string;
   signatureHeader: string | null;
   secret: string;
+  svixId?: string | null;
+  svixTimestamp?: string | null;
 }): boolean {
-  if (!input.signatureHeader || !input.secret) return false;
+  if (!input.secret) return false;
 
-  // Simple shared-secret mode: header equals secret (for early setups)
-  if (input.signatureHeader === input.secret) return true;
-
-  // Svix-style: t=timestamp,v1=signature
-  const parts = Object.fromEntries(
-    input.signatureHeader.split(" ").flatMap((chunk) => {
-      const [k, v] = chunk.split("=");
-      return k && v ? [[k, v]] : [];
-    }),
-  ) as Record<string, string>;
-
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) return false;
-
-  const signed = `${timestamp}.${input.payload}`;
-  const expected = createHash("sha256")
-    .update(input.secret.startsWith("whsec_") ? input.secret.slice(6) : input.secret)
-    .update(signed)
-    .digest("hex");
-
-  try {
-    const a = Buffer.from(expected);
-    const b = Buffer.from(signature);
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
+  // Simple shared-secret mode (legacy / local)
+  if (input.signatureHeader && input.signatureHeader === input.secret) {
+    return true;
   }
+
+  const id = input.svixId?.trim();
+  const timestamp = input.svixTimestamp?.trim();
+  const signatureHeader = input.signatureHeader?.trim();
+  if (!id || !timestamp || !signatureHeader) return false;
+
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return false;
+  if (Math.abs(Date.now() / 1000 - ts) > 60 * 5) return false;
+
+  const key = input.secret.startsWith("whsec_")
+    ? Buffer.from(input.secret.slice(6), "base64")
+    : Buffer.from(input.secret, "utf8");
+
+  const toSign = `${id}.${timestamp}.${input.payload}`;
+  const expected = createHmac("sha256", key).update(toSign).digest("base64");
+
+  // svix-signature: "v1,<sig>" or multiple space-separated versions
+  const candidates = signatureHeader.split(/\s+/).flatMap((chunk) => {
+    if (chunk.startsWith("v1,")) return [chunk.slice(3)];
+    if (chunk.startsWith("v1=")) return [chunk.slice(3)];
+    const parts = chunk.split("=");
+    if (parts[0] === "v1" && parts[1]) return [parts[1]];
+    return [];
+  });
+
+  for (const candidate of candidates) {
+    try {
+      const a = Buffer.from(expected);
+      const b = Buffer.from(candidate);
+      if (a.length === b.length && timingSafeEqual(a, b)) return true;
+    } catch {
+      /* continue */
+    }
+  }
+  return false;
 }

@@ -16,7 +16,7 @@ import {
   type MapLngLat,
   type MapStopPoint,
 } from "@/lib/delivery/map-geometry";
-import { loadMapboxGL } from "@/lib/delivery/mapbox-loader";
+import { loadMapboxGL, getMapStyle, hasMapboxToken } from "@/lib/delivery/mapbox-loader";
 import type {
   MapboxGL,
   MapboxMap,
@@ -35,8 +35,6 @@ const COMPLETED_SOURCE = "delivery-route-completed";
 const REMAINING_SOURCE = "delivery-route-remaining";
 const COMPLETED_LAYER = "delivery-route-completed-line";
 const REMAINING_LAYER = "delivery-route-remaining-line";
-/** Clean logistics-friendly style; replaceable later via white-label config. */
-const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 type DeliveryMapProps = {
   model: DeliveryMapModel;
@@ -46,9 +44,11 @@ type DeliveryMapProps = {
 };
 
 function getAccessToken(): string | null {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-  if (!token || !token.trim()) return null;
-  return token.trim();
+  // MapLibre OSM fallback works without a token; Mapbox path still needs one.
+  if (hasMapboxToken()) {
+    return (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "").trim();
+  }
+  return "maplibre-osm";
 }
 
 function markerSymbol(point: MapStopPoint): string {
@@ -492,12 +492,14 @@ export function DeliveryMap({
         const mapboxgl = await loadMapboxGL();
         if (cancelled || !containerRef.current) return;
 
-        mapboxgl.accessToken = token;
+        if (hasMapboxToken() && token !== "maplibre-osm") {
+          mapboxgl.accessToken = token;
+        }
         mapboxRef.current = mapboxgl;
 
         const map = new mapboxgl.Map({
           container: containerRef.current,
-          style: MAP_STYLE,
+          style: getMapStyle() as never,
           center: pointsRef.current[0]?.lngLat ?? [3.3792, 6.5244],
           zoom: 5,
           attributionControl: true,

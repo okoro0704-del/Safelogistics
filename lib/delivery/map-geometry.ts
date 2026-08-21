@@ -23,24 +23,25 @@ export type MapStopPoint = {
 export function isValidCoordinate(
   latitude: unknown,
   longitude: unknown,
-): latitude is number {
-  if (typeof latitude !== "number" || typeof longitude !== "number") {
+): boolean {
+  const lat = typeof latitude === "number" ? latitude : Number(latitude);
+  const lng = typeof longitude === "number" ? longitude : Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return false;
   }
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return false;
-  }
-  if (latitude < -90 || latitude > 90) return false;
-  if (longitude < -180 || longitude > 180) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
   return true;
 }
 
 export function toLngLat(
-  latitude: number,
-  longitude: number,
+  latitude: number | string,
+  longitude: number | string,
 ): MapLngLat | null {
-  if (!isValidCoordinate(latitude, longitude)) return null;
-  return [longitude, latitude];
+  const lat = typeof latitude === "number" ? latitude : Number(latitude);
+  const lng = typeof longitude === "number" ? longitude : Number(longitude);
+  if (!isValidCoordinate(lat, lng)) return null;
+  return [lng, lat];
 }
 
 /**

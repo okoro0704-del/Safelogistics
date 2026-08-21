@@ -188,6 +188,21 @@ export function AdminInboxClient() {
     loadThreads("inbox");
   }, [loadThreads]);
 
+  // Keep inbox in sync with Resend webhook inserts
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") loadThreads(folder);
+    };
+    const id = window.setInterval(tick, 15000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [folder, loadThreads]);
+
   async function moveThread(id: string, nextFolder: MailboxFolder) {
     startTransition(async () => {
       const response = await fetch(`/api/admin/inbox/${id}`, {

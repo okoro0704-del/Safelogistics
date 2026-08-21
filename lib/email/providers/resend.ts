@@ -112,6 +112,81 @@ export class ResendMailProvider implements MailProvider {
     }
     return { id: data.id };
   }
+
+  /** Fetch inbound email body (Resend receiving API — webhook payload is metadata-only). */
+  async getReceivedEmail(emailId: string): Promise<{
+    text: string | null;
+    html: string | null;
+    subject: string | null;
+    from: string | null;
+    to: string[];
+  } | null> {
+    try {
+      // SDK surface varies by version; fall back to REST.
+      const client = this.client as unknown as {
+        emails?: {
+          receiving?: {
+            get?: (id: string) => Promise<{
+              data?: {
+                text?: string | null;
+                html?: string | null;
+                subject?: string | null;
+                from?: string | null;
+                to?: string[] | string | null;
+              } | null;
+              error?: { message?: string } | null;
+            }>;
+          };
+        };
+      };
+      if (client.emails?.receiving?.get) {
+        const { data, error } = await client.emails.receiving.get(emailId);
+        if (error || !data) return null;
+        const toRaw = data.to;
+        const to = Array.isArray(toRaw)
+          ? toRaw.map(String)
+          : toRaw
+            ? [String(toRaw)]
+            : [];
+        return {
+          text: data.text ?? null,
+          html: data.html ?? null,
+          subject: data.subject ?? null,
+          from: data.from ?? null,
+          to,
+        };
+      }
+    } catch {
+      /* fall through to REST */
+    }
+
+    const key = process.env.RESEND_API_KEY?.trim();
+    if (!key) return null;
+    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      text?: string | null;
+      html?: string | null;
+      subject?: string | null;
+      from?: string | null;
+      to?: string[] | string | null;
+    };
+    const toRaw = data.to;
+    const to = Array.isArray(toRaw)
+      ? toRaw.map(String)
+      : toRaw
+        ? [String(toRaw)]
+        : [];
+    return {
+      text: data.text ?? null,
+      html: data.html ?? null,
+      subject: data.subject ?? null,
+      from: data.from ?? null,
+      to,
+    };
+  }
 }
 
 export function createResendMailProviderFromEnv(): ResendMailProvider {
