@@ -24,6 +24,9 @@ export type DistributorProvisionBody = {
   logo_url?: string | null;
   primary_color?: string | null;
   accent_color?: string | null;
+  dashboard_template?: string | null;
+  dashboard_style?: string | null;
+  feature_flags?: Record<string, boolean> | null;
 };
 
 export type DistributorProvisionResponse = {
@@ -80,6 +83,19 @@ export function parseDistributorProvisionBody(
   if (primary_color && !/^#[0-9a-f]{6}$/.test(primary_color)) primary_color = null;
   if (accent_color && !/^#[0-9a-f]{6}$/.test(accent_color)) accent_color = null;
 
+  const dashboard_template =
+    String(body.dashboard_template ?? nested.dashboard_template ?? "").trim() ||
+    null;
+  const dashboard_style =
+    String(body.dashboard_style ?? nested.dashboard_style ?? "").trim() || null;
+  const feature_flags_raw = body.feature_flags ?? nested.feature_flags;
+  const feature_flags =
+    feature_flags_raw &&
+    typeof feature_flags_raw === "object" &&
+    !Array.isArray(feature_flags_raw)
+      ? (feature_flags_raw as Record<string, boolean>)
+      : null;
+
   if (!isUuid(client_id)) {
     return { ok: false, error: "client_id must be a UUID." };
   }
@@ -131,6 +147,9 @@ export function parseDistributorProvisionBody(
       logo_url,
       primary_color,
       accent_color,
+      dashboard_template,
+      dashboard_style,
+      feature_flags,
     },
   };
 }
@@ -320,7 +339,13 @@ export async function provisionDistributorTenant(input: {
     createdCompanyId = companyId;
 
     // Persist logo + colors onto company_branding (RPC may omit logo_url).
-    if (input.body.logo_url || input.body.primary_color || input.body.accent_color) {
+    if (
+      input.body.logo_url ||
+      input.body.primary_color ||
+      input.body.accent_color ||
+      input.body.dashboard_template ||
+      input.body.feature_flags
+    ) {
       await adminClient.from("company_branding").upsert(
         {
           company_id: companyId,
@@ -329,6 +354,13 @@ export async function provisionDistributorTenant(input: {
           accent_color: input.body.accent_color,
           tagline: `Sign in to ${companyName}`,
           support_email: input.body.admin_email,
+          dashboard_template: input.body.dashboard_template ?? "shipper_classic",
+          dashboard_style: input.body.dashboard_style ?? "classic",
+          feature_flags: input.body.feature_flags ?? {
+            create_shipment: true,
+            tracking: true,
+            mailbox: true,
+          },
         },
         { onConflict: "company_id" },
       );

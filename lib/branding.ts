@@ -38,6 +38,9 @@ export type CompanyBrandingRow = {
   tagline: string | null;
   support_email: string | null;
   website_url: string | null;
+  dashboard_template?: string | null;
+  dashboard_style?: string | null;
+  feature_flags?: Record<string, boolean> | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -71,6 +74,9 @@ export type ResolvedBrand = {
   websiteUrl: string | null;
   isCustom: boolean;
   companySlug?: string | null;
+  dashboardTemplate: string;
+  dashboardStyle: string;
+  featureFlags: Record<string, boolean>;
 };
 
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
@@ -170,6 +176,26 @@ export function resolveBrand(input?: ResolveInput | null): ResolvedBrand {
   const customSupport =
     row && "support_email" in row ? row.support_email : null;
   const customWebsite = row && "website_url" in row ? row.website_url : null;
+  const brandingRow = row as Partial<CompanyBrandingRow> | null;
+  const dashboardTemplate =
+    (brandingRow && "dashboard_template" in brandingRow
+      ? brandingRow.dashboard_template
+      : null) || "shipper_classic";
+  const dashboardStyle =
+    (brandingRow && "dashboard_style" in brandingRow
+      ? brandingRow.dashboard_style
+      : null) || "classic";
+  const featureFlags =
+    brandingRow &&
+    "feature_flags" in brandingRow &&
+    brandingRow.feature_flags &&
+    typeof brandingRow.feature_flags === "object"
+      ? brandingRow.feature_flags
+      : {
+          create_shipment: true,
+          tracking: true,
+          mailbox: true,
+        };
 
   const displayName =
     publicBrand?.company_name ||
@@ -213,6 +239,9 @@ export function resolveBrand(input?: ResolveInput | null): ResolvedBrand {
     websiteUrl: customWebsite || null,
     isCustom,
     companySlug: publicBrand?.company_slug || input?.companySlug || null,
+    dashboardTemplate,
+    dashboardStyle,
+    featureFlags,
   };
 }
 
